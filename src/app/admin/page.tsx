@@ -2,10 +2,12 @@
 
 import { FormEvent, useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
 import { createClient } from "@/lib/supabase-browser";
 
 export default function AdminLoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -22,7 +24,12 @@ export default function AdminLoginPage() {
     setIsLoading(true);
     const { error } = await createClient().auth.signInWithPassword({ email, password });
     setIsLoading(false);
-    setMessage(error ? "تعذر تسجيل الدخول. راجع البريد الإلكتروني وكلمة المرور." : "تم تسجيل الدخول بنجاح.");
+    if (error) {
+      setMessage("تعذر تسجيل الدخول. راجع البريد الإلكتروني وكلمة المرور.");
+      return;
+    }
+    router.push("/admin/dashboard");
+    router.refresh();
   }
 
   return <main className="login-page"><section className="login-panel" aria-labelledby="login-title">
