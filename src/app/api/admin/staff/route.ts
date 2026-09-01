@@ -38,7 +38,14 @@ export async function POST(request: NextRequest) {
   if (createError || !created.user) return NextResponse.json({ message: createError?.message ?? "تعذر إنشاء الحساب." }, { status: 400 });
   const { error: profileError } = await auth.admin.from("profiles").insert({ id: created.user.id, full_name: fullName, role, is_active: true });
   if (profileError) { await auth.admin.auth.admin.deleteUser(created.user.id); return NextResponse.json({ message: "تعذر حفظ ملف الموظف." }, { status: 500 }); }
-  if (permissions.length) await auth.admin.from("user_permissions").insert(permissions.map((permission_key) => ({ user_id: created.user.id, permission_key })));
+  if (permissions.length) {
+    const { error: permissionsError } = await auth.admin.from("user_permissions").insert(permissions.map((permission_key) => ({ user_id: created.user.id, permission_key })));
+    if (permissionsError) {
+      await auth.admin.from("profiles").delete().eq("id", created.user.id);
+      await auth.admin.auth.admin.deleteUser(created.user.id);
+      return NextResponse.json({ message: "تعذر حفظ صلاحيات الموظف." }, { status: 500 });
+    }
+  }
   return NextResponse.json({ message: "تمت إضافة الموظف وتحديد صلاحياته." }, { status: 201 });
 }
 
