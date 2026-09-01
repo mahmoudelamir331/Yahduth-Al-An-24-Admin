@@ -6,6 +6,16 @@ export const metadata: Metadata = {
   description: "تسجيل الدخول إلى لوحة تحكم يحدث الآن",
 };
 
+import { ThemeProvider } from "@/components/ThemeProvider";
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="ar" dir="rtl"><body>{children}</body></html>;
+  return (
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
+      <body className="antialiased">
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          {children}
+        </ThemeProvider>
+      </body>
+    </html>
+  );
 }

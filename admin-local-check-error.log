@@ -1,0 +1,12 @@
+⚠ Warning: Next.js ignored package-lock.json in K:\WEBSIT\Yahduth Al-An 24 because it is outside the current Git repository (K:\WEBSIT\Yahduth Al-An 24\Yahduth Al-An 24 Admin).
+ To use this directory, set `turbopack.root` in your Next.js config.
+
+⨯ Another next dev server is already running.
+
+- Local:        http://localhost:3000
+- PID:          13400
+- Dir:          K:\WEBSIT\Yahduth Al-An 24\Yahduth Al-An 24 Admin
+- Log:          .next\dev\logs\next-development.log
+
+You can access the existing server at http://localhost:3000,
+or run taskkill /PID 13400 /F to stop it and start a new one.
