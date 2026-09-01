@@ -4,7 +4,7 @@ import { FormEvent, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, LockKeyhole, Mail } from "lucide-react";
-import { createClient } from "@/lib/supabase-browser";
+import { createClient, hasSupabaseConfig } from "@/lib/supabase-browser";
 import { cn } from "@/lib/utils";
 
 export default function AdminLoginPage() {
@@ -18,10 +18,8 @@ export default function AdminLoginPage() {
   async function handleLogin(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!supabaseUrl || !anonKey || supabaseUrl.includes("your-project") || anonKey.includes("your-anon-key")) {
-      setMessage("إعدادات Supabase غير مكتملة — يرجى مراجعة ملف .env.local");
+    if (!hasSupabaseConfig()) {
+      setMessage("إعدادات الخادم ناقصة: أضف NEXT_PUBLIC_SUPABASE_URL وNEXT_PUBLIC_SUPABASE_ANON_KEY في Vercel ثم أعد النشر.");
       return;
     }
     setIsLoading(true);
@@ -85,18 +83,7 @@ export default function AdminLoginPage() {
             منصة إدارة متكاملة لفريق تحرير "يحدث الآن 24" — إدارة الأخبار، الميديا، والإعلانات في مكان واحد.
           </p>
 
-          <div className="mt-10 flex flex-col gap-3">
-            {[
-              "✦  إدارة الأخبار والمسودات",
-              "✦  نظام صلاحيات متقدم للفريق",
-              "✦  مطبخ الأخبار بالمحرر المتطور",
-              "✦  إحصائيات وسجل نشاطات فوري",
-            ].map((text) => (
-              <p key={text} className="text-teal-100/70 text-sm text-right">
-                {text}
-              </p>
-            ))}
-          </div>
+
         </div>
       </div>
 

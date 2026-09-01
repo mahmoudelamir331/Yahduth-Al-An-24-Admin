@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BarChart3, FileText, Image, LayoutDashboard, LogOut, Menu, Megaphone, MonitorCog, Moon, Newspaper, Settings2, ShieldCheck, Sun, Users, X, RadioTower } from "lucide-react";
-import { createClient } from "@/lib/supabase-browser";
+import { createClient, hasSupabaseConfig } from "@/lib/supabase-browser";
 import NewsStudio from "@/components/NewsStudio";
 import MediaManager from "@/components/MediaManager";
 import AdsManager from "@/components/AdsManager";
@@ -26,7 +26,7 @@ const sections = [
   { id: "ads", label: "الإعلانات", icon: Megaphone, permission: "ads.manage" },
   { id: "journalists", label: "إدارة الصحفيين", icon: RadioTower, permission: "journalists.manage" },
   { id: "team", label: "إدارة الفريق", icon: Users, permission: "users.manage" },
-  { id: "system", label: "الإعدادات", icon: MonitorCog, permission: "system.manage" },
+  { id: "system", label: "الإعدادات", icon: MonitorCog, permission: "settings.maintenance" },
 ];
 
 export default function DashboardPage() {
@@ -47,17 +47,16 @@ export default function DashboardPage() {
   const can = (key?: string) => isOwner || !key || permissions.includes(key);
 
   async function loadDashboard() {
+    if (!hasSupabaseConfig()) {
+      setLoading(false);
+      return;
+    }
     const userResponse = await supabase.auth.getUser();
     const user = userResponse.data.user;
-    if (!user) { 
-      // TEMPORARY BYPASS FOR UI SHOWCASE
-      setProfile({ id: 'preview-id', full_name: 'مدير النظام (معاينة)', role: 'super_admin', is_active: true });
-      setPermissions(['news.publish', 'news.review']);
-      setStats({ articles: 120, views: 45000, staff: 5 });
-      setStaff([{ id: 'mock1', full_name: 'أحمد محمود', role: 'editor', is_active: true, user_permissions: [] }]);
-      setCatalog([]);
+    if (!user) {
       setLoading(false);
-      return; 
+      router.replace("/admin");
+      return;
     }
     const [{ data: currentProfile }, { data: ownPermissions }, articleCount, views, staffCount] = await Promise.all([
       supabase.from("profiles").select("id, full_name, role, is_active").eq("id", user.id).single(),
@@ -99,6 +98,14 @@ export default function DashboardPage() {
   }
 
   if (loading) return <main className="min-h-screen grid items-center justify-center font-bold text-lg text-primary">جارٍ تحميل لوحة التحكم...</main>;
+  if (!profile && !hasSupabaseConfig()) return (
+    <main className="min-h-screen grid place-items-center p-6 bg-slate-50 dark:bg-slate-900" dir="rtl">
+      <div className="max-w-lg rounded-2xl border border-amber-300 bg-amber-50 p-6 text-center text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+        <h1 className="mb-3 text-xl font-bold">إعدادات الخادم ناقصة</h1>
+        <p className="text-sm leading-7">أضف NEXT_PUBLIC_SUPABASE_URL وNEXT_PUBLIC_SUPABASE_ANON_KEY في Vercel، وبعدها اعمل Redeploy للوحة الأدمن.</p>
+      </div>
+    </main>
+  );
   if (!profile) return null;
   const visibleSections = sections.filter((section) => can(section.permission));
 
@@ -174,7 +181,7 @@ export default function DashboardPage() {
             {active === "ads" && <AdsManager />}
             {active === "journalists" && (isOwner || permissions.includes("journalists.manage")) && <JournalistManager />}
             {active === "team" && isOwner && <TeamManager staff={staff} permissions={catalog} notice={notice} currentUserId={profile.id} onSubmit={addStaff} onReload={loadDashboard} />}
-            {active === "system" && (isOwner || permissions.includes("settings.maintenance")) && <SystemManager />}
+            {active === "system" && (isOwner || permissions.includes("settings.maintenance") || permissions.includes("settings.manage") || permissions.includes("system.manage")) && <SystemManager />}
           </div>
         </div>
       </section>

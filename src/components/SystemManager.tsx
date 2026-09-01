@@ -46,7 +46,7 @@ export default function SystemManager() {
   useEffect(() => { void load(); }, []);
   
   async function load() { 
-    const [{ data: settings }, { data: activity }] = await Promise.all([
+    const [settingsResult, activityResult] = await Promise.all([
       supabase.from("site_settings")
         .select("maintenance_enabled,maintenance_message,maintenance_ends_at,social_facebook,social_youtube,social_twitter,contact_phone,contact_address,contact_whatsapp")
         .eq("id", true).maybeSingle(), 
@@ -54,7 +54,11 @@ export default function SystemManager() {
         .select("id,action,entity_type,created_at,actor:profiles(full_name)")
         .order("created_at", { ascending: false })
         .limit(50)
-    ]); 
+    ]);
+    const { data: settings, error: settingsError } = settingsResult;
+    const { data: activity, error: activityError } = activityResult;
+    if (settingsError) setNotice("تعذر تحميل إعدادات الموقع: " + settingsError.message);
+    else if (activityError) setNotice("تم تحميل الإعدادات، لكن تعذر تحميل سجل النشاطات.");
     
     if (settings) { 
       setMaintenance(settings.maintenance_enabled ?? false); 

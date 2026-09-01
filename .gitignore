@@ -11,3 +11,8 @@ npm-debug.log*
 .idea/
 .DS_Store
 Thumbs.db
+
+.env
+.env.*
+!.env.example
+env.local
