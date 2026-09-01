@@ -16,3 +16,5 @@ Thumbs.db
 .env.*
 !.env.example
 env.local
+.vercel
+.env*

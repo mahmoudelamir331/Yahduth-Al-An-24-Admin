@@ -94,7 +94,10 @@
     backdrop-filter: blur(12px);
     transition: all 0.2s ease;
     width: 100%;
-    color: var(--foreground);
+    color: #0f172a;
+    font-size: 0.95rem;
+    font-weight: 600;
+    opacity: 1;
   }
 
   textarea.glass-input {
@@ -111,8 +114,9 @@
   }
 
   .dark .glass-input {
-    background-color: rgba(0, 0, 0, 0.3);
-    border-color: rgba(255, 255, 255, 0.1);
+    background-color: rgba(15, 23, 42, 0.85);
+    border-color: rgba(255, 255, 255, 0.2);
+    color: #f8fafc;
   }
 
   .glass-input:focus {
@@ -123,7 +127,18 @@
   }
 
   .glass-input::placeholder {
-    opacity: 0.5;
+    color: #64748b;
+    opacity: 1;
+  }
+
+  .dark .glass-input::placeholder {
+    color: #cbd5e1;
+    opacity: 0.9;
+  }
+
+  .glass-input option {
+    color: #0f172a;
+    background: #ffffff;
   }
 
   .glass-button {
