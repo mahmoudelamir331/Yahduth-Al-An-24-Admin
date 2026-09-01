@@ -6,6 +6,7 @@ import { BarChart3, FileText, Image, LayoutDashboard, LogOut, Menu, Megaphone, M
 import { createClient, hasSupabaseConfig } from "@/lib/supabase-browser";
 import NewsStudio from "@/components/NewsStudio";
 import MediaManager from "@/components/MediaManager";
+import LiveStreamManager from "@/components/LiveStreamManager";
 import AdsManager from "@/components/AdsManager";
 import TeamManager from "@/components/TeamManager";
 import SystemManager from "@/components/SystemManager";
@@ -23,6 +24,7 @@ const sections = [
   { id: "news", label: "الأخبار", icon: Newspaper, permission: "news.view" },
   { id: "analytics", label: "الإحصائيات", icon: BarChart3, permission: "system.manage" },
   { id: "media", label: "الميديا", icon: Image, permission: "media.manage" },
+  { id: "live", label: "البث المباشر", icon: RadioTower, permission: "media.manage" },
   { id: "ads", label: "الإعلانات", icon: Megaphone, permission: "ads.manage" },
   { id: "journalists", label: "إدارة الصحفيين", icon: RadioTower, permission: "journalists.manage" },
   { id: "team", label: "إدارة الفريق", icon: Users, permission: "users.manage" },
@@ -178,6 +180,7 @@ export default function DashboardPage() {
             {active === "news" && <NewsStudio canPublish={isOwner || permissions.includes("news.publish")} canReview={isOwner || permissions.includes("news.review")} />}
             {active === "analytics" && <DashboardHome stats={stats} name={profile.full_name} />}
             {active === "media" && <MediaManager />}
+            {active === "live" && <LiveStreamManager />}
             {active === "ads" && <AdsManager />}
             {active === "journalists" && (isOwner || permissions.includes("journalists.manage")) && <JournalistManager />}
             {active === "team" && isOwner && <TeamManager staff={staff} permissions={catalog} notice={notice} currentUserId={profile.id} onSubmit={addStaff} onReload={loadDashboard} />}
