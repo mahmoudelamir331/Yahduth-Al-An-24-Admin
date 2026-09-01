@@ -2,7 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BarChart3, FileText, Image, LayoutDashboard, LogOut, Menu, Megaphone, MonitorCog, Moon, Newspaper, Settings2, ShieldCheck, Sun, Users, X, RadioTower } from "lucide-react";
+import { BarChart3, FileText, Image, LayoutDashboard, LogOut, Menu, Megaphone, MonitorCog, Moon, Newspaper, Settings2, ShieldCheck, Sun, Users, X, RadioTower, UserRound } from "lucide-react";
 import { createClient, hasSupabaseConfig } from "@/lib/supabase-browser";
 import NewsStudio from "@/components/NewsStudio";
 import MediaManager from "@/components/MediaManager";
@@ -11,6 +11,7 @@ import AdsManager from "@/components/AdsManager";
 import TeamManager from "@/components/TeamManager";
 import SystemManager from "@/components/SystemManager";
 import JournalistManager from "@/components/JournalistManager";
+import AccountManager from "@/components/AccountManager";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ type StaffMember = Profile & { user_permissions: { permission_key: string }[] };
 const roleLabels: Record<string, string> = { super_admin: "المالك", manager: "مدير", editor: "محرر", advertiser: "مسؤول إعلانات" };
 const sections = [
   { id: "dashboard", label: "الرئيسية", icon: LayoutDashboard },
+  { id: "account", label: "حسابي", icon: UserRound },
   { id: "news", label: "الأخبار", icon: Newspaper, permission: "news.view" },
   { id: "analytics", label: "الإحصائيات", icon: BarChart3, permission: "system.manage" },
   { id: "media", label: "الميديا", icon: Image, permission: "media.manage" },
@@ -35,6 +37,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [email, setEmail] = useState("");
   const [permissions, setPermissions] = useState<string[]>([]);
   const [stats, setStats] = useState({ articles: 0, views: 0, staff: 0 });
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -69,6 +72,7 @@ export default function DashboardPage() {
     ]);
     if (!currentProfile?.is_active) { await supabase.auth.signOut(); router.replace("/admin"); return; }
     setProfile(currentProfile);
+    setEmail(user.email ?? "");
     setPermissions((ownPermissions ?? []).map((item) => item.permission_key));
     setStats({ articles: articleCount.count ?? 0, views: (views.data ?? []).reduce((total, article) => total + article.views_count, 0), staff: staffCount.count ?? 0 });
     if (currentProfile.role === "super_admin") {
@@ -177,6 +181,7 @@ export default function DashboardPage() {
         <div className="flex-1 overflow-auto p-4 md:p-8 relative z-0">
           <div className="max-w-[1400px] mx-auto pb-20">
               {active === "dashboard" && <DashboardHome stats={stats} name={profile.full_name} />}
+            {active === "account" && <AccountManager profile={profile} email={email} />}
             {active === "news" && <NewsStudio canPublish={isOwner || permissions.includes("news.publish")} canReview={isOwner || permissions.includes("news.review")} />}
             {active === "analytics" && <DashboardHome stats={stats} name={profile.full_name} />}
             {active === "media" && <MediaManager />}
