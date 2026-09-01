@@ -236,7 +236,7 @@ export default function TeamManager({ staff, permissions, notice, currentUserId,
                   </td>
                   <td className="px-4 py-3">
                     <span className="text-xs opacity-60">
-                      {member.user_permissions.length} صلاحية
+                      {member.role === "super_admin" ? "كل الصلاحيات" : `${member.user_permissions.length} صلاحية`}
                     </span>
                   </td>
                   <td className="px-4 py-3">
