@@ -21,11 +21,15 @@ on conflict (key) do update set label = excluded.label, description = excluded.d
 alter table public.journalists enable row level security;
 
 -- Policy للقراءة (الكل يقدر يقرأ)
+drop policy if exists "journalists_read_policy" on public.journalists;
 create policy "journalists_read_policy" on public.journalists
   for select using (true);
 
 -- Policy للكتابة والتعديل والحذف (المالك والمدير فقط)
+drop policy if exists "journalists_write_policy" on public.journalists;
 create policy "journalists_write_policy" on public.journalists
   for all using (
+    (select role from public.profiles where id = auth.uid()) in ('super_admin', 'manager')
+  ) with check (
     (select role from public.profiles where id = auth.uid()) in ('super_admin', 'manager')
   );

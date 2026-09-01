@@ -82,7 +82,7 @@ export default function AdminLoginPage() {
             بوابة الإدارة المركزية
           </h2>
           <p className="text-teal-100/80 text-base leading-relaxed max-w-[280px] mx-auto">
-            منصة إدارة متكاملة لفريق تحرير "يحدث الآن 24" — إدارة الأخبار، الميديا، والإعلانات في مكان واحد.
+            منصة إدارة متكاملة لفريق تحرير &quot;يحدث الآن 24&quot; — إدارة الأخبار، الميديا، والإعلانات في مكان واحد.
           </p>
 
           <div className="mt-10 flex flex-col gap-3">

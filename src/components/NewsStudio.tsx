@@ -38,7 +38,10 @@ export default function NewsStudio({ canPublish = true, canReview = false }: { c
       setLoading(false); 
   }, [supabase]);
   
-  useEffect(() => { void loadArticles(); }, [loadArticles]);
+    useEffect(() => {
+            const timer = window.setTimeout(() => void loadArticles(), 0);
+            return () => window.clearTimeout(timer);
+    }, [loadArticles]);
   useEffect(() => { 
       if (!editing) return; 
       const timer = window.setTimeout(() => { localStorage.setItem(draftKey, JSON.stringify(editing)); setSaved(true); }, 500); 

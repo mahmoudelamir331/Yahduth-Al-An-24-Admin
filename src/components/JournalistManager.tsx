@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState, useEffect } from "react";
+import { FormEvent, useCallback, useMemo, useState, useEffect } from "react";
 import { Plus, Save, Trash2, Edit3, X, Check } from "lucide-react";
 import { createClient } from "@/lib/supabase-browser";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,7 @@ export default function JournalistManager() {
   const [notice, setNotice] = useState("");
 
   // تحميل الصحفيين
-  const loadJournalists = async () => {
+  const loadJournalists = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("journalists")
@@ -39,11 +39,12 @@ export default function JournalistManager() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [supabase]);
 
   useEffect(() => {
-    void loadJournalists();
-  }, [supabase]);
+    const timer = window.setTimeout(() => void loadJournalists(), 0);
+    return () => window.clearTimeout(timer);
+  }, [loadJournalists]);
 
   // إضافة صحفي جديد
   const handleAddJournalist = async (e: FormEvent) => {

@@ -64,7 +64,7 @@ export default function AdsManager() {
             
             <div className="flex flex-col gap-2 md:col-span-2 mt-2">
                 <label className="text-sm font-semibold opacity-90 pl-1">رابط الصورة أو كود الإعلان</label>
-                <textarea name="content" rows={4} className="glass-input resize-y py-3 font-mono text-left" dir="ltr" placeholder="<script async src='https://pagead2.googlesyndication...'></script>" required />
+                <textarea name="content" rows={4} className="glass-input resize-y py-3 font-mono" dir="ltr" placeholder="<script async src='https://pagead2.googlesyndication...'></script>" required />
             </div>
             
             <button className="glass-button glass-button-primary md:col-span-2 h-12 text-lg shadow-xl shadow-primary/20 mt-2" type="submit">

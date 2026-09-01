@@ -209,7 +209,11 @@ create policy "editors manage article tags" on public.article_tags for all to au
 create policy "media managers manage assets" on public.media_assets for all to authenticated using (public.has_permission('media.manage')) with check (public.has_permission('media.manage'));
 create policy "ad managers manage ads" on public.ads for all to authenticated using (public.has_permission('ads.manage')) with check (public.has_permission('ads.manage'));
 create policy "staff view settings" on public.site_settings for select to authenticated using (true);
-create policy "settings managers update settings" on public.site_settings for update to authenticated using (public.has_permission('settings.manage')) with check (public.has_permission('settings.manage'));
+create policy "settings managers update settings" on public.site_settings for all to authenticated using (
+  public.is_super_admin() or public.has_permission('settings.manage')
+) with check (
+  public.is_super_admin() or public.has_permission('settings.manage')
+);
 create policy "staff view static pages" on public.static_pages for select to authenticated using (true);
 create policy "page managers manage static pages" on public.static_pages for all to authenticated using (public.has_permission('pages.manage')) with check (public.has_permission('pages.manage'));
 create policy "users create own reset request" on public.password_reset_requests for insert to authenticated with check (user_id = auth.uid());

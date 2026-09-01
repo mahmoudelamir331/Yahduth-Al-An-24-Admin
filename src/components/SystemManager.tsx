@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { Clock3, History, Save, ShieldAlert, AlertTriangle, Facebook, Youtube, Twitter, Link2, ExternalLink, Trash2, Phone, MapPin, MessageCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase-browser";
 import { cn } from "@/lib/utils";
@@ -43,9 +43,7 @@ export default function SystemManager() {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"maintenance" | "social" | "contact" | "logs">("maintenance");
   
-  useEffect(() => { void load(); }, []);
-  
-  async function load() { 
+  const load = useCallback(async () => { 
     const [{ data: settings }, { data: activity }] = await Promise.all([
       supabase.from("site_settings")
         .select("maintenance_enabled,maintenance_message,maintenance_ends_at,social_facebook,social_youtube,social_twitter,contact_phone,contact_address,contact_whatsapp")
@@ -73,7 +71,12 @@ export default function SystemManager() {
     } 
     setLogs((activity ?? []) as Activity[]); 
     setLoading(false);
-  }
+  }, [supabase]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
   
   async function saveMaintenance(event: FormEvent<HTMLFormElement>) { 
     event.preventDefault(); 

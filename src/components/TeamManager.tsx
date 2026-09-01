@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, type ReactNode, useMemo, useState } from "react";
+import { FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import { Check, ChevronDown, CheckSquare, KeyRound, LockKeyhole, Newspaper, Image as ImageIcon, Megaphone, Settings, Users, X, Info, Edit3, PowerOff, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase-browser";
 import { motion, AnimatePresence } from "framer-motion";
@@ -302,7 +302,7 @@ function PermissionGroups({ permissions, defaultSelected, isReadOnly = false }: 
   const [openSection, setOpenSection] = useState<string | null>(groups[0].title);
   const [selectedKeys, setSelectedKeys] = useState<string[]>(defaultSelected);
 
-  useMemo(() => { setSelectedKeys(defaultSelected); }, [defaultSelected]);
+  useEffect(() => { setSelectedKeys(defaultSelected); }, [defaultSelected]);
 
   const toggleAll = (keys: { key: string }[]) => {
     const allIncluded = keys.every(k => selectedKeys.includes(k.key));
