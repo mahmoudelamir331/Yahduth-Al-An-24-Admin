@@ -88,11 +88,12 @@ export default function DashboardPage() {
     setPermissions(me?.permissions ?? []);
     setStats({ articles: articleCount.count ?? 0, views: (views.data ?? []).reduce((total, article) => total + article.views_count, 0), staff: staffCount.count ?? 0 });
     if (currentProfile.role === "super_admin" || (me?.permissions ?? []).some((item) => ["users.manage", "team.manage"].includes(item))) {
-      const [{ data: allStaff }, { data: allPermissions }] = await Promise.all([
-        supabase.from("profiles").select("id, full_name, role, is_active, user_permissions(permission_key)").order("created_at", { ascending: false }),
+      const [staffResponse, { data: allPermissions }] = await Promise.all([
+        fetch("/api/admin/staff", { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` }, cache: "no-store" }),
         supabase.from("permissions").select("key, label, description").order("key"),
       ]);
-      setStaff((allStaff ?? []) as StaffMember[]);
+      const staffPayload = staffResponse.ok ? await staffResponse.json() as { staff?: StaffMember[] } : { staff: [] };
+      setStaff(staffPayload.staff ?? []);
       const mergedCatalog = fallbackPermissionCatalog.map((fallback) => allPermissions?.find((permission) => permission.key === fallback.key) ?? fallback);
       setCatalog([...mergedCatalog, ...(allPermissions ?? []).filter((permission) => !fallbackPermissionCatalog.some((fallback) => fallback.key === permission.key))]);
     }
