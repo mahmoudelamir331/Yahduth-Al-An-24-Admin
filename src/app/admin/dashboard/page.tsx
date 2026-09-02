@@ -93,7 +93,8 @@ export default function DashboardPage() {
         supabase.from("permissions").select("key, label, description").order("key"),
       ]);
       setStaff((allStaff ?? []) as StaffMember[]);
-      setCatalog(allPermissions?.length ? allPermissions : fallbackPermissionCatalog);
+      const mergedCatalog = fallbackPermissionCatalog.map((fallback) => allPermissions?.find((permission) => permission.key === fallback.key) ?? fallback);
+      setCatalog([...mergedCatalog, ...(allPermissions ?? []).filter((permission) => !fallbackPermissionCatalog.some((fallback) => fallback.key === permission.key))]);
     }
     setLoading(false);
   }, [router, supabase]);
