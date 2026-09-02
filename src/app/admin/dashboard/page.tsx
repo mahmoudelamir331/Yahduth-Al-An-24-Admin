@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BarChart3, FileText, Image, LayoutDashboard, LogOut, Menu, Megaphone, MonitorCog, Moon, Newspaper, Settings2, ShieldCheck, Sun, Users, X, RadioTower } from "lucide-react";
 import { createClient } from "@/lib/supabase-browser";
@@ -10,6 +10,7 @@ import AdsManager from "@/components/AdsManager";
 import TeamManager from "@/components/TeamManager";
 import SystemManager from "@/components/SystemManager";
 import JournalistManager from "@/components/JournalistManager";
+import CategoriesManager from "@/components/CategoriesManager";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
@@ -18,16 +19,24 @@ type Permission = { key: string; label: string; description: string };
 type StaffMember = Profile & { user_permissions: { permission_key: string }[] };
 
 const roleLabels: Record<string, string> = { super_admin: "المالك", manager: "مدير", editor: "محرر", advertiser: "مسؤول إعلانات" };
+type Section = {
+  id: string;
+  label: string;
+  icon: typeof LayoutDashboard;
+  permission?: string | string[];
+};
+
 const sections = [
   { id: "dashboard", label: "الرئيسية", icon: LayoutDashboard },
   { id: "news", label: "الأخبار", icon: Newspaper, permission: "news.view" },
-  { id: "analytics", label: "الإحصائيات", icon: BarChart3, permission: "system.manage" },
-  { id: "media", label: "الميديا", icon: Image, permission: "media.manage" },
-  { id: "ads", label: "الإعلانات", icon: Megaphone, permission: "ads.manage" },
+  { id: "analytics", label: "الإحصائيات", icon: BarChart3, permission: "stats.view" },
+  { id: "media", label: "الميديا", icon: Image, permission: ["media.manage", "media.upload"] },
+  { id: "ads", label: "الإعلانات", icon: Megaphone, permission: ["ads.manage", "ads.create", "ads.toggle"] },
   { id: "journalists", label: "إدارة الصحفيين", icon: RadioTower, permission: "journalists.manage" },
-  { id: "team", label: "إدارة الفريق", icon: Users, permission: "users.manage" },
-  { id: "system", label: "الإعدادات", icon: MonitorCog, permission: "system.manage" },
-];
+  { id: "categories", label: "إدارة الأقسام", icon: Settings2, permission: "categories.manage" },
+  { id: "team", label: "إدارة الفريق", icon: Users, permission: ["users.manage", "team.manage"] },
+  { id: "system", label: "الإعدادات", icon: MonitorCog, permission: ["system.manage", "settings.maintenance", "settings.vip", "vip.manage"] },
+] satisfies Section[];
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -44,20 +53,18 @@ export default function DashboardPage() {
   const { theme, setTheme } = useTheme();
 
   const isOwner = profile?.role === "super_admin";
-  const can = (key?: string) => isOwner || !key || permissions.includes(key);
+  const can = (key?: string | string[]) =>
+    isOwner ||
+    !key ||
+    (Array.isArray(key) ? key.some((permission) => permissions.includes(permission)) : permissions.includes(key));
 
-  async function loadDashboard() {
+  const loadDashboard = useCallback(async () => {
     const userResponse = await supabase.auth.getUser();
     const user = userResponse.data.user;
-    if (!user) { 
-      // TEMPORARY BYPASS FOR UI SHOWCASE
-      setProfile({ id: 'preview-id', full_name: 'مدير النظام (معاينة)', role: 'super_admin', is_active: true });
-      setPermissions(['news.publish', 'news.review']);
-      setStats({ articles: 120, views: 45000, staff: 5 });
-      setStaff([{ id: 'mock1', full_name: 'أحمد محمود', role: 'editor', is_active: true, user_permissions: [] }]);
-      setCatalog([]);
+    if (!user) {
       setLoading(false);
-      return; 
+      router.replace("/admin");
+      return;
     }
     const [{ data: currentProfile }, { data: ownPermissions }, articleCount, views, staffCount] = await Promise.all([
       supabase.from("profiles").select("id, full_name, role, is_active").eq("id", user.id).single(),
@@ -79,9 +86,13 @@ export default function DashboardPage() {
       setCatalog(allPermissions ?? []);
     }
     setLoading(false);
-  }
+  }, [router, supabase]);
 
-  useEffect(() => { void loadDashboard(); }, []);
+  useEffect(() => {
+    void (async () => {
+      await loadDashboard();
+    })();
+  }, [loadDashboard]);
 
   async function logout() { await supabase.auth.signOut(); router.replace("/admin"); }
 
@@ -173,8 +184,9 @@ export default function DashboardPage() {
             {active === "media" && <MediaManager />}
             {active === "ads" && <AdsManager />}
             {active === "journalists" && (isOwner || permissions.includes("journalists.manage")) && <JournalistManager />}
-            {active === "team" && isOwner && <TeamManager staff={staff} permissions={catalog} notice={notice} currentUserId={profile.id} onSubmit={addStaff} onReload={loadDashboard} />}
-            {active === "system" && (isOwner || permissions.includes("settings.maintenance")) && <SystemManager />}
+            {active === "categories" && (isOwner || permissions.includes("categories.manage")) && <CategoriesManager />}
+            {active === "team" && (isOwner || permissions.includes("users.manage") || permissions.includes("team.manage")) && <TeamManager staff={staff} permissions={catalog} notice={notice} currentUserId={profile.id} onSubmit={addStaff} onReload={loadDashboard} />}
+            {active === "system" && (isOwner || permissions.includes("settings.maintenance") || permissions.includes("settings.manage") || permissions.includes("settings.vip") || permissions.includes("vip.manage")) && <SystemManager />}
           </div>
         </div>
       </section>

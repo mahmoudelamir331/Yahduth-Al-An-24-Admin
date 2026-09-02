@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, type ReactNode, useEffect, useMemo, useState } from "react";
+import { FormEvent, type ReactNode, useMemo, useState } from "react";
 import { Check, ChevronDown, CheckSquare, KeyRound, LockKeyhole, Newspaper, Image as ImageIcon, Megaphone, Settings, Users, X, Info, Edit3, PowerOff, Trash2 } from "lucide-react";
 import { createClient } from "@/lib/supabase-browser";
 import { motion, AnimatePresence } from "framer-motion";
@@ -143,7 +143,7 @@ export default function TeamManager({ staff, permissions, notice, currentUserId,
                 <LockKeyhole size={17} className="text-primary" />
                 الصلاحيات الدقيقة
               </h3>
-              <PermissionGroups permissions={permissions} defaultSelected={roleTemplates[roleTemplate]} />
+              <PermissionGroups key={roleTemplate} permissions={permissions} defaultSelected={roleTemplates[roleTemplate]} />
             </div>
 
             {notice && (
@@ -302,8 +302,6 @@ function PermissionGroups({ permissions, defaultSelected, isReadOnly = false }: 
   const [openSection, setOpenSection] = useState<string | null>(groups[0].title);
   const [selectedKeys, setSelectedKeys] = useState<string[]>(defaultSelected);
 
-  useEffect(() => { setSelectedKeys(defaultSelected); }, [defaultSelected]);
-
   const toggleAll = (keys: { key: string }[]) => {
     const allIncluded = keys.every(k => selectedKeys.includes(k.key));
     if (allIncluded) setSelectedKeys(current => current.filter(k => !keys.map(x => x.key).includes(k)));
@@ -391,7 +389,7 @@ function EditModal({ member, permissions, onClose, onSave }: { member: StaffMemb
         </div>
         <div>
           <h4 className="font-bold mb-3 text-sm">الصلاحيات المُسندة</h4>
-          <PermissionGroups permissions={permissions} defaultSelected={member.user_permissions.map(p => p.permission_key)} />
+          <PermissionGroups key={member.id} permissions={permissions} defaultSelected={member.user_permissions.map(p => p.permission_key)} />
         </div>
         <div className="flex items-center gap-3 justify-end mt-4 pt-4 border-t border-glass-border/30">
           <button className="glass-button glass-button-secondary" type="button" onClick={onClose}><X size={16} /> إلغاء</button>
