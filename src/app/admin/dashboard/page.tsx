@@ -13,6 +13,7 @@ import SystemManager from "@/components/SystemManager";
 import JournalistManager from "@/components/JournalistManager";
 import AccountManager from "@/components/AccountManager";
 import CategoriesManager from "@/components/CategoriesManager";
+import PasswordResetRequestsManager from "@/components/PasswordResetRequestsManager";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
@@ -32,6 +33,7 @@ const sections = [
   { id: "journalists", label: "إدارة الصحفيين", icon: RadioTower, permission: "journalists.manage" },
   { id: "categories", label: "إدارة الأقسام", icon: Settings2, permission: "categories.manage" },
   { id: "team", label: "إدارة الفريق", icon: Users, permission: ["users.manage", "team.manage"] },
+  { id: "password-requests", label: "طلبات كلمة السر", icon: ShieldCheck, permission: ["users.manage", "team.manage"] },
   { id: "system", label: "الإعدادات", icon: MonitorCog, permission: ["settings.maintenance", "settings.manage", "settings.vip", "vip.manage"] },
 ];
 
@@ -65,9 +67,11 @@ export default function DashboardPage() {
       router.replace("/admin");
       return;
     }
-    const [{ data: currentProfile }, { data: ownPermissions }, articleCount, views, staffCount] = await Promise.all([
-      supabase.from("profiles").select("id, full_name, role, is_active").eq("id", user.id).single(),
-      supabase.from("user_permissions").select("permission_key").eq("user_id", user.id),
+    const session = (await supabase.auth.getSession()).data.session;
+    const meResponse = await fetch("/api/admin/me", { headers: { Authorization: `Bearer ${session?.access_token ?? ""}` }, cache: "no-store" });
+    const me = meResponse.ok ? await meResponse.json() as { profile: Profile; permissions: string[] } : null;
+    const [{ data: currentProfile }, articleCount, views, staffCount] = await Promise.all([
+      Promise.resolve({ data: me?.profile ?? null }),
       supabase.from("articles").select("id", { count: "exact", head: true }),
       supabase.from("articles").select("views_count"),
       supabase.from("profiles").select("id", { count: "exact", head: true }).eq("is_active", true),
@@ -75,9 +79,9 @@ export default function DashboardPage() {
     if (!currentProfile?.is_active) { await supabase.auth.signOut(); router.replace("/admin"); return; }
     setProfile(currentProfile);
     setEmail(user.email ?? "");
-    setPermissions((ownPermissions ?? []).map((item) => item.permission_key));
+    setPermissions(me?.permissions ?? []);
     setStats({ articles: articleCount.count ?? 0, views: (views.data ?? []).reduce((total, article) => total + article.views_count, 0), staff: staffCount.count ?? 0 });
-    if (currentProfile.role === "super_admin" || (ownPermissions ?? []).some((item) => ["users.manage", "team.manage"].includes(item.permission_key))) {
+    if (currentProfile.role === "super_admin" || (me?.permissions ?? []).some((item) => ["users.manage", "team.manage"].includes(item))) {
       const [{ data: allStaff }, { data: allPermissions }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, role, is_active, user_permissions(permission_key)").order("created_at", { ascending: false }),
         supabase.from("permissions").select("key, label, description").order("key"),
@@ -193,6 +197,7 @@ export default function DashboardPage() {
             {active === "journalists" && (isOwner || permissions.includes("journalists.manage")) && <JournalistManager />}
             {active === "categories" && (isOwner || permissions.includes("categories.manage")) && <CategoriesManager />}
             {active === "team" && (isOwner || permissions.includes("users.manage") || permissions.includes("team.manage")) && <TeamManager staff={staff} permissions={catalog} notice={notice} currentUserId={profile.id} onSubmit={addStaff} onReload={loadDashboard} />}
+            {active === "password-requests" && (isOwner || permissions.includes("users.manage") || permissions.includes("team.manage")) && <PasswordResetRequestsManager />}
             {active === "system" && (isOwner || permissions.includes("settings.maintenance") || permissions.includes("settings.manage") || permissions.includes("settings.vip") || permissions.includes("vip.manage")) && <SystemManager />}
           </div>
         </div>
