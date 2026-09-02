@@ -28,8 +28,8 @@ function selectedPermissions(body: Record<string, unknown>) {
   return Array.from(new Set(Array.isArray(body.permissions) ? body.permissions.filter((item): item is string => typeof item === "string") : []));
 }
 
-function hasOnlyKnownPermissions(permissions: string[]) {
-  return permissions.every((permission) => knownPermissionKeys.has(permission));
+function safePermissions(permissions: string[]) {
+  return permissions.filter((permission) => /^[a-z][a-z0-9]*(?:\.[a-z0-9_-]+)+$/i.test(permission));
 }
 
 export async function GET(request: NextRequest) {
@@ -48,13 +48,13 @@ export async function POST(request: NextRequest) {
   const body = await request.json() as Record<string, unknown>;
   const fullName = typeof body.fullName === "string" ? body.fullName.trim() : "", email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "", password = typeof body.password === "string" ? body.password : "", role = typeof body.role === "string" ? body.role : "", permissions = selectedPermissions(body);
   if (!fullName || !email || password.length < 8 || !roles.includes(role)) return NextResponse.json({ message: "راجع بيانات الموظف وكلمة المرور." }, { status: 400 });
-  if (!hasOnlyKnownPermissions(permissions)) return NextResponse.json({ message: "تم إرسال صلاحية غير صالحة." }, { status: 400 });
+  const validPermissions = safePermissions(permissions);
   const { data: created, error: createError } = await auth.admin.auth.admin.createUser({ email, password, email_confirm: true });
   if (createError || !created.user) return NextResponse.json({ message: createError?.message ?? "تعذر إنشاء الحساب." }, { status: 400 });
   const { error: profileError } = await auth.admin.from("profiles").insert({ id: created.user.id, full_name: fullName, role, is_active: true });
   if (profileError) { await auth.admin.auth.admin.deleteUser(created.user.id); return NextResponse.json({ message: "تعذر حفظ ملف الموظف." }, { status: 500 }); }
-  if (permissions.length) {
-    const { error: permissionsError } = await auth.admin.from("user_permissions").insert(permissions.map((permission_key) => ({ user_id: created.user.id, permission_key })));
+  if (validPermissions.length) {
+    const { error: permissionsError } = await auth.admin.from("user_permissions").insert(validPermissions.map((permission_key) => ({ user_id: created.user.id, permission_key })));
     if (permissionsError) {
       await auth.admin.auth.admin.deleteUser(created.user.id);
       await auth.admin.from("profiles").delete().eq("id", created.user.id);
@@ -71,6 +71,6 @@ export async function PATCH(request: NextRequest) {
   if (action === "delete") { const { error } = await auth.admin.auth.admin.deleteUser(targetId); if (error) return NextResponse.json({ message: error.message }, { status: 400 }); return NextResponse.json({ message: "تم حذف الموظف." }); }
   if (action === "password") { const password = typeof body.password === "string" ? body.password : ""; if (password.length < 8) return NextResponse.json({ message: "كلمة المرور يجب أن تكون 8 أحرف على الأقل." }, { status: 400 }); const { error } = await auth.admin.auth.admin.updateUserById(targetId, { password }); if (error) return NextResponse.json({ message: error.message }, { status: 400 }); return NextResponse.json({ message: "تم تغيير كلمة المرور." }); }
   if (action === "status") { const { data: current } = await auth.admin.from("profiles").select("is_active").eq("id", targetId).single(); const { error } = await auth.admin.from("profiles").update({ is_active: !current?.is_active }).eq("id", targetId); if (error) return NextResponse.json({ message: error.message }, { status: 400 }); return NextResponse.json({ message: "تم تحديث حالة الحساب." }); }
-  if (action === "update") { const fullName = typeof body.fullName === "string" ? body.fullName.trim() : "", role = typeof body.role === "string" ? body.role : "", permissions = selectedPermissions(body); if (!fullName || !roles.includes(role)) return NextResponse.json({ message: "راجع اسم الموظف ودوره." }, { status: 400 }); const { data: available } = await auth.admin.from("permissions").select("key").in("key", permissions); if ((available?.length ?? 0) !== permissions.length) return NextResponse.json({ message: "تم إرسال صلاحية غير صالحة." }, { status: 400 }); const { error } = await auth.admin.from("profiles").update({ full_name: fullName, role }).eq("id", targetId); if (error) return NextResponse.json({ message: error.message }, { status: 400 }); const { error: deleteError } = await auth.admin.from("user_permissions").delete().eq("user_id", targetId); if (deleteError) return NextResponse.json({ message: deleteError.message }, { status: 400 }); if (permissions.length) { const { error: insertError } = await auth.admin.from("user_permissions").insert(permissions.map((permission_key) => ({ user_id: targetId, permission_key }))); if (insertError) return NextResponse.json({ message: insertError.message }, { status: 400 }); } return NextResponse.json({ message: "تم تحديث بيانات وصلاحيات الموظف." }); }
+  if (action === "update") { const fullName = typeof body.fullName === "string" ? body.fullName.trim() : "", role = typeof body.role === "string" ? body.role : "", permissions = safePermissions(selectedPermissions(body)); if (!fullName || !roles.includes(role)) return NextResponse.json({ message: "راجع اسم الموظف ودوره." }, { status: 400 }); const { error } = await auth.admin.from("profiles").update({ full_name: fullName, role }).eq("id", targetId); if (error) return NextResponse.json({ message: error.message }, { status: 400 }); const { error: deleteError } = await auth.admin.from("user_permissions").delete().eq("user_id", targetId); if (deleteError) return NextResponse.json({ message: deleteError.message }, { status: 400 }); if (permissions.length) { const { error: insertError } = await auth.admin.from("user_permissions").insert(permissions.map((permission_key) => ({ user_id: targetId, permission_key }))); if (insertError) return NextResponse.json({ message: insertError.message }, { status: 400 }); } return NextResponse.json({ message: "تم تحديث بيانات وصلاحيات الموظف." }); }
   return NextResponse.json({ message: "إجراء غير معروف." }, { status: 400 });
 }
