@@ -2,6 +2,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-route";
 
 const permission = ["categories.manage"];
+const defaultCategories = [
+  { name: "أخبار أسوان", slug: "aswan", is_active: true },
+  { name: "اقتصاد", slug: "economy", is_active: true },
+  { name: "تحقيقات", slug: "investigations", is_active: true },
+  { name: "تكنولوجيا", slug: "tech", is_active: true },
+  { name: "رياضة", slug: "sports", is_active: true },
+  { name: "سياحة وثقافة", slug: "culture", is_active: true },
+  { name: "سياسة", slug: "politics", is_active: true },
+];
 const slugify = (value: string) => value.trim().toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-|-$/g, "");
 
 export async function GET(request: NextRequest) {
@@ -9,7 +18,13 @@ export async function GET(request: NextRequest) {
   if ("error" in auth) return auth.error;
   const { data, error } = await auth.admin.from("categories").select("id,name,slug,is_active,created_at").order("created_at", { ascending: true });
   if (error) return NextResponse.json({ message: error.message }, { status: 400 });
-  return NextResponse.json({ categories: data ?? [] });
+  if ((data ?? []).length > 0) return NextResponse.json({ categories: data });
+  const { data: seeded, error: seedError } = await auth.admin
+    .from("categories")
+    .upsert(defaultCategories, { onConflict: "slug", ignoreDuplicates: true })
+    .select("id,name,slug,is_active,created_at");
+  if (seedError) return NextResponse.json({ message: seedError.message }, { status: 400 });
+  return NextResponse.json({ categories: seeded ?? [] });
 }
 
 export async function POST(request: NextRequest) {

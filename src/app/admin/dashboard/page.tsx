@@ -22,19 +22,25 @@ type Permission = { key: string; label: string; description: string };
 type StaffMember = Profile & { user_permissions: { permission_key: string }[] };
 
 const roleLabels: Record<string, string> = { super_admin: "المالك", manager: "مدير", editor: "محرر", advertiser: "مسؤول إعلانات" };
+const fallbackPermissionCatalog: Permission[] = [
+  ["news.view", "مشاهدة الأخبار"], ["news.create", "إضافة خبر جديد"], ["news.edit.own", "تعديل أخباره فقط"], ["news.edit.any", "تعديل أخبار الكل"], ["news.publish", "نشر الأخبار"], ["news.review", "مراجعة المسودات"], ["news.archive", "أرشفة الأخبار"], ["news.delete", "حذف الأخبار"],
+  ["media.view", "مشاهدة المكتبة"], ["media.upload", "رفع صور/فيديو"], ["media.delete", "حذف ميديا"], ["media.watermark", "التحكم في العلامة المائية"],
+  ["ads.view", "مشاهدة الإعلانات"], ["ads.create", "إضافة إعلان"], ["ads.toggle", "إيقاف/تفعيل إعلان"],
+  ["settings.edit", "تعديل إعدادات الموقع"], ["settings.maintenance", "تفعيل وضع الصيانة"], ["settings.social", "إدارة السوشيال ميديا"], ["users.manage", "إدارة حسابات الموظفين"], ["team.manage", "إدارة الفريق"], ["categories.manage", "إدارة الأقسام"], ["stats.view", "عرض الإحصائيات"],
+].map(([key, label]) => ({ key, label, description: label }));
 const sections = [
   { id: "dashboard", label: "الرئيسية", icon: LayoutDashboard },
   { id: "account", label: "حسابي", icon: UserRound },
   { id: "news", label: "الأخبار", icon: Newspaper, permission: "news.view" },
   { id: "analytics", label: "الإحصائيات", icon: BarChart3, permission: "stats.view" },
-  { id: "media", label: "الميديا", icon: Image, permission: ["media.manage", "media.upload"] },
-  { id: "live", label: "البث المباشر", icon: RadioTower, permission: "media.manage" },
-  { id: "ads", label: "الإعلانات", icon: Megaphone, permission: ["ads.manage", "ads.create", "ads.toggle"] },
+  { id: "media", label: "الميديا", icon: Image, permission: ["media.view", "media.upload"] },
+  { id: "live", label: "البث المباشر", icon: RadioTower, permission: ["media.view", "media.upload"] },
+  { id: "ads", label: "الإعلانات", icon: Megaphone, permission: ["ads.view", "ads.create", "ads.toggle"] },
   { id: "journalists", label: "إدارة الصحفيين", icon: RadioTower, permission: "journalists.manage" },
   { id: "categories", label: "إدارة الأقسام", icon: Settings2, permission: "categories.manage" },
   { id: "team", label: "إدارة الفريق", icon: Users, permission: ["users.manage", "team.manage"] },
   { id: "password-requests", label: "طلبات كلمة السر", icon: ShieldCheck, permission: ["users.manage", "team.manage"] },
-  { id: "system", label: "الإعدادات", icon: MonitorCog, permission: ["settings.maintenance", "settings.manage", "settings.vip", "vip.manage"] },
+  { id: "system", label: "الإعدادات", icon: MonitorCog, permission: ["settings.edit", "settings.maintenance", "settings.social"] },
 ];
 
 export default function DashboardPage() {
@@ -87,7 +93,7 @@ export default function DashboardPage() {
         supabase.from("permissions").select("key, label, description").order("key"),
       ]);
       setStaff((allStaff ?? []) as StaffMember[]);
-      setCatalog(allPermissions ?? []);
+      setCatalog(allPermissions?.length ? allPermissions : fallbackPermissionCatalog);
     }
     setLoading(false);
   }, [router, supabase]);

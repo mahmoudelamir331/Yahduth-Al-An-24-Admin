@@ -2,6 +2,12 @@ import { createClient } from "@supabase/supabase-js";
 import { NextRequest, NextResponse } from "next/server";
 
 const roles = ["manager", "editor", "advertiser"];
+const knownPermissionKeys = new Set([
+  "news.view", "news.create", "news.edit.own", "news.edit.any", "news.publish", "news.review", "news.archive", "news.delete",
+  "media.view", "media.upload", "media.delete", "media.watermark",
+  "ads.view", "ads.create", "ads.toggle",
+  "settings.edit", "settings.maintenance", "settings.social", "users.manage", "team.manage", "categories.manage", "stats.view",
+]);
 async function authorize(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL, anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY, serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !anonKey || !serviceKey) return { error: NextResponse.json({ message: "إعدادات الخادم ناقصة." }, { status: 500 }) };
@@ -18,15 +24,31 @@ async function authorize(request: NextRequest) {
   if (!profile?.is_active || (profile.role !== "super_admin" && !permission)) return { error: NextResponse.json({ message: "غير مسموح لك بإدارة الفريق." }, { status: 403 }) };
   return { admin, userId: authData.user.id };
 }
-function selectedPermissions(body: Record<string, unknown>) { return Array.isArray(body.permissions) ? body.permissions.filter((item): item is string => typeof item === "string") : []; }
+function selectedPermissions(body: Record<string, unknown>) {
+  return Array.from(new Set(Array.isArray(body.permissions) ? body.permissions.filter((item): item is string => typeof item === "string") : []));
+}
+
+function hasOnlyKnownPermissions(permissions: string[]) {
+  return permissions.every((permission) => knownPermissionKeys.has(permission));
+}
+
+export async function GET(request: NextRequest) {
+  const auth = await authorize(request);
+  if ("error" in auth) return auth.error;
+  const { data, error } = await auth.admin
+    .from("profiles")
+    .select("id,full_name,role,is_active,created_at,user_permissions(permission_key)")
+    .order("created_at", { ascending: false });
+  if (error) return NextResponse.json({ message: error.message }, { status: 400 });
+  return NextResponse.json({ staff: data ?? [] });
+}
 
 export async function POST(request: NextRequest) {
   const auth = await authorize(request); if ("error" in auth) return auth.error;
   const body = await request.json() as Record<string, unknown>;
   const fullName = typeof body.fullName === "string" ? body.fullName.trim() : "", email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "", password = typeof body.password === "string" ? body.password : "", role = typeof body.role === "string" ? body.role : "", permissions = selectedPermissions(body);
   if (!fullName || !email || password.length < 8 || !roles.includes(role)) return NextResponse.json({ message: "راجع بيانات الموظف وكلمة المرور." }, { status: 400 });
-  const { data: available } = await auth.admin.from("permissions").select("key").in("key", permissions);
-  if ((available?.length ?? 0) !== permissions.length) return NextResponse.json({ message: "تم إرسال صلاحية غير صالحة." }, { status: 400 });
+  if (!hasOnlyKnownPermissions(permissions)) return NextResponse.json({ message: "تم إرسال صلاحية غير صالحة." }, { status: 400 });
   const { data: created, error: createError } = await auth.admin.auth.admin.createUser({ email, password, email_confirm: true });
   if (createError || !created.user) return NextResponse.json({ message: createError?.message ?? "تعذر إنشاء الحساب." }, { status: 400 });
   const { error: profileError } = await auth.admin.from("profiles").insert({ id: created.user.id, full_name: fullName, role, is_active: true });
