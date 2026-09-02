@@ -29,12 +29,21 @@
     --primary-foreground: #020617;
   }
 
-  * {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
     border-color: rgba(226, 232, 240, 1);
   }
 
   .dark * {
     border-color: rgba(255, 255, 255, 0.08);
+  }
+
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   body {
@@ -81,7 +90,7 @@
   }
 
   .glass-input {
-    box-sizing: border-box;
+    max-width: 100%;
     background-color: rgba(255, 255, 255, 0.3);
     border: 1px solid rgba(255, 255, 255, 0.4);
     border-radius: 0.5rem;
@@ -134,6 +143,24 @@
   .dark .glass-input::placeholder {
     color: #cbd5e1;
     opacity: 0.9;
+  }
+
+  @media (max-width: 767px) {
+    .glass-panel,
+    .glass-card {
+      max-width: 100%;
+    }
+
+    table {
+      min-width: 620px;
+    }
+
+    pre,
+    code {
+      max-width: 100%;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
   }
 
   .glass-input option {
