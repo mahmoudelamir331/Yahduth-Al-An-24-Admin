@@ -1,15 +1,17 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { BarChart3, FileText, Image, LayoutDashboard, LogOut, Menu, Megaphone, MonitorCog, Moon, Newspaper, Settings2, ShieldCheck, Sun, Users, X, RadioTower } from "lucide-react";
-import { createClient } from "@/lib/supabase-browser";
+import { BarChart3, FileText, Image, LayoutDashboard, LogOut, Menu, Megaphone, MonitorCog, Moon, Newspaper, Settings2, ShieldCheck, Sun, Users, X, RadioTower, UserRound } from "lucide-react";
+import { createClient, hasSupabaseConfig } from "@/lib/supabase-browser";
 import NewsStudio from "@/components/NewsStudio";
 import MediaManager from "@/components/MediaManager";
+import LiveStreamManager from "@/components/LiveStreamManager";
 import AdsManager from "@/components/AdsManager";
 import TeamManager from "@/components/TeamManager";
 import SystemManager from "@/components/SystemManager";
 import JournalistManager from "@/components/JournalistManager";
+import AccountManager from "@/components/AccountManager";
 import CategoriesManager from "@/components/CategoriesManager";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
@@ -19,29 +21,25 @@ type Permission = { key: string; label: string; description: string };
 type StaffMember = Profile & { user_permissions: { permission_key: string }[] };
 
 const roleLabels: Record<string, string> = { super_admin: "المالك", manager: "مدير", editor: "محرر", advertiser: "مسؤول إعلانات" };
-type Section = {
-  id: string;
-  label: string;
-  icon: typeof LayoutDashboard;
-  permission?: string | string[];
-};
-
 const sections = [
   { id: "dashboard", label: "الرئيسية", icon: LayoutDashboard },
+  { id: "account", label: "حسابي", icon: UserRound },
   { id: "news", label: "الأخبار", icon: Newspaper, permission: "news.view" },
   { id: "analytics", label: "الإحصائيات", icon: BarChart3, permission: "stats.view" },
   { id: "media", label: "الميديا", icon: Image, permission: ["media.manage", "media.upload"] },
+  { id: "live", label: "البث المباشر", icon: RadioTower, permission: "media.manage" },
   { id: "ads", label: "الإعلانات", icon: Megaphone, permission: ["ads.manage", "ads.create", "ads.toggle"] },
   { id: "journalists", label: "إدارة الصحفيين", icon: RadioTower, permission: "journalists.manage" },
   { id: "categories", label: "إدارة الأقسام", icon: Settings2, permission: "categories.manage" },
   { id: "team", label: "إدارة الفريق", icon: Users, permission: ["users.manage", "team.manage"] },
-  { id: "system", label: "الإعدادات", icon: MonitorCog, permission: ["system.manage", "settings.maintenance", "settings.vip", "vip.manage"] },
-] satisfies Section[];
+  { id: "system", label: "الإعدادات", icon: MonitorCog, permission: ["settings.maintenance", "settings.manage", "settings.vip", "vip.manage"] },
+];
 
 export default function DashboardPage() {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [email, setEmail] = useState("");
   const [permissions, setPermissions] = useState<string[]>([]);
   const [stats, setStats] = useState({ articles: 0, views: 0, staff: 0 });
   const [staff, setStaff] = useState<StaffMember[]>([]);
@@ -53,12 +51,13 @@ export default function DashboardPage() {
   const { theme, setTheme } = useTheme();
 
   const isOwner = profile?.role === "super_admin";
-  const can = (key?: string | string[]) =>
-    isOwner ||
-    !key ||
-    (Array.isArray(key) ? key.some((permission) => permissions.includes(permission)) : permissions.includes(key));
+  const can = (key?: string | string[]) => isOwner || !key || (Array.isArray(key) ? key.some((item) => permissions.includes(item)) : permissions.includes(key));
 
   const loadDashboard = useCallback(async () => {
+    if (!hasSupabaseConfig()) {
+      setLoading(false);
+      return;
+    }
     const userResponse = await supabase.auth.getUser();
     const user = userResponse.data.user;
     if (!user) {
@@ -75,9 +74,10 @@ export default function DashboardPage() {
     ]);
     if (!currentProfile?.is_active) { await supabase.auth.signOut(); router.replace("/admin"); return; }
     setProfile(currentProfile);
+    setEmail(user.email ?? "");
     setPermissions((ownPermissions ?? []).map((item) => item.permission_key));
     setStats({ articles: articleCount.count ?? 0, views: (views.data ?? []).reduce((total, article) => total + article.views_count, 0), staff: staffCount.count ?? 0 });
-    if (currentProfile.role === "super_admin") {
+    if (currentProfile.role === "super_admin" || (ownPermissions ?? []).some((item) => ["users.manage", "team.manage"].includes(item.permission_key))) {
       const [{ data: allStaff }, { data: allPermissions }] = await Promise.all([
         supabase.from("profiles").select("id, full_name, role, is_active, user_permissions(permission_key)").order("created_at", { ascending: false }),
         supabase.from("permissions").select("key, label, description").order("key"),
@@ -88,17 +88,14 @@ export default function DashboardPage() {
     setLoading(false);
   }, [router, supabase]);
 
-  useEffect(() => {
-    void (async () => {
-      await loadDashboard();
-    })();
-  }, [loadDashboard]);
+  useEffect(() => { void loadDashboard(); }, [loadDashboard]);
 
   async function logout() { await supabase.auth.signOut(); router.replace("/admin"); }
 
   async function addStaff(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
     const selectedPermissions = catalog.filter((item) => form.get(item.key) === "on").map((item) => item.key);
     setNotice("جارٍ إنشاء الحساب...");
     const sessionResponse = await supabase.auth.getSession();
@@ -106,10 +103,18 @@ export default function DashboardPage() {
     const response = await fetch("/api/admin/staff", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` }, body: JSON.stringify({ fullName: form.get("fullName"), email: form.get("email"), password: form.get("password"), role: form.get("role"), permissions: selectedPermissions }) });
     const result = await response.json();
     setNotice(result.message);
-    if (response.ok) { event.currentTarget.reset(); await loadDashboard(); }
+    if (response.ok) { formElement.reset(); await loadDashboard(); }
   }
 
   if (loading) return <main className="min-h-screen grid items-center justify-center font-bold text-lg text-primary">جارٍ تحميل لوحة التحكم...</main>;
+  if (!profile && !hasSupabaseConfig()) return (
+    <main className="min-h-screen grid place-items-center p-6 bg-slate-50 dark:bg-slate-900" dir="rtl">
+      <div className="max-w-lg rounded-2xl border border-amber-300 bg-amber-50 p-6 text-center text-amber-900 dark:bg-amber-500/10 dark:text-amber-200">
+        <h1 className="mb-3 text-xl font-bold">إعدادات الخادم ناقصة</h1>
+        <p className="text-sm leading-7">أضف NEXT_PUBLIC_SUPABASE_URL وNEXT_PUBLIC_SUPABASE_ANON_KEY في Vercel، وبعدها اعمل Redeploy للوحة الأدمن.</p>
+      </div>
+    </main>
+  );
   if (!profile) return null;
   const visibleSections = sections.filter((section) => can(section.permission));
 
@@ -179,9 +184,11 @@ export default function DashboardPage() {
         <div className="flex-1 overflow-auto p-4 md:p-8 relative z-0">
           <div className="max-w-[1400px] mx-auto pb-20">
               {active === "dashboard" && <DashboardHome stats={stats} name={profile.full_name} />}
+            {active === "account" && <AccountManager profile={profile} email={email} />}
             {active === "news" && <NewsStudio canPublish={isOwner || permissions.includes("news.publish")} canReview={isOwner || permissions.includes("news.review")} />}
             {active === "analytics" && <DashboardHome stats={stats} name={profile.full_name} />}
             {active === "media" && <MediaManager />}
+            {active === "live" && <LiveStreamManager />}
             {active === "ads" && <AdsManager />}
             {active === "journalists" && (isOwner || permissions.includes("journalists.manage")) && <JournalistManager />}
             {active === "categories" && (isOwner || permissions.includes("categories.manage")) && <CategoriesManager />}
@@ -219,3 +226,4 @@ function DashboardHome({ stats, name }: { stats: { articles: number; views: numb
     </>
   ); 
 }
+

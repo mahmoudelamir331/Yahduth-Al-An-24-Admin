@@ -6,7 +6,8 @@ import { createClient } from "@/lib/supabase-browser";
 import AdvancedNewsEditor from "@/components/AdvancedNewsEditor";
 import { cn } from "@/lib/utils";
 
-type Article = { id: string; title: string; excerpt: string; content: string; status: "draft" | "scheduled" | "published" | "archived" | "review"; isUrgent: boolean; isHeadline: boolean; scheduledFor: string; updatedAt: string };
+type Article = { id: string; title: string; excerpt: string; content: string; status: "draft" | "scheduled" | "published" | "archived" | "review"; isUrgent: boolean; isHeadline: boolean; journalistId: string; scheduledFor: string; updatedAt: string };
+type Journalist = { id: string; display_name: string; is_active: boolean };
 const draftKey = "yahduth-news-draft";
 
 const statusConfig = {
@@ -20,6 +21,7 @@ const statusConfig = {
 export default function NewsStudio({ canPublish = true, canReview = false }: { canPublish?: boolean; canReview?: boolean }) {
   const supabase = useMemo(() => createClient(), []);
   const [articles, setArticles] = useState<Article[]>([]);
+  const [journalists, setJournalists] = useState<Journalist[]>([]);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState("");
   const [editing, setEditing] = useState<Article | null>(() => {
@@ -32,9 +34,13 @@ export default function NewsStudio({ canPublish = true, canReview = false }: { c
   const [search, setSearch] = useState("");
   
   const loadArticles = useCallback(async () => { 
-      const { data, error } = await supabase.from("articles").select("id,title,excerpt,content,status,is_urgent,is_headline,scheduled_for,updated_at").order("updated_at", { ascending: false }); 
+      const [{ data, error }, journalistsResult] = await Promise.all([
+        supabase.from("articles").select("id,title,excerpt,content,status,is_urgent,is_headline,journalist_id,scheduled_for,updated_at").order("updated_at", { ascending: false }),
+        supabase.from("journalists").select("id,display_name,is_active").eq("is_active", true).order("display_name"),
+      ]);
+      setJournalists((journalistsResult.data ?? []) as Journalist[]);
       if (error) setNotice("تعذر تحميل الأخبار: " + error.message); 
-      else setArticles((data ?? []).map((item) => ({ id: item.id, title: item.title, excerpt: item.excerpt, content: Array.isArray(item.content) ? item.content.join("<p>") : String(item.content ?? ""), status: item.status, isUrgent: item.is_urgent, isHeadline: item.is_headline, scheduledFor: item.scheduled_for ? item.scheduled_for.slice(0, 16) : "", updatedAt: new Date(item.updated_at).toLocaleDateString("ar-EG") }))); 
+      else setArticles((data ?? []).map((item) => ({ id: item.id, title: item.title, excerpt: item.excerpt, content: Array.isArray(item.content) ? item.content.join("<p>") : String(item.content ?? ""), status: item.status, isUrgent: item.is_urgent, isHeadline: item.is_headline, journalistId: item.journalist_id ?? "", scheduledFor: item.scheduled_for ? item.scheduled_for.slice(0, 16) : "", updatedAt: new Date(item.updated_at).toLocaleDateString("ar-EG") })));
       setLoading(false); 
   }, [supabase]);
   
@@ -51,7 +57,7 @@ export default function NewsStudio({ canPublish = true, canReview = false }: { c
   const filtered = articles.filter((article) => article.title.includes(search) || article.excerpt.includes(search));
   
   function update(patch: Partial<Article>) { setEditing((current) => current ? { ...current, ...patch } : current); setSaved(false); }
-  function startNew() { setEditing({ id: "new", title: "", excerpt: "", content: "", status: "draft", isUrgent: false, isHeadline: false, scheduledFor: "", updatedAt: "الآن" }); }
+  function startNew() { setEditing({ id: "new", title: "", excerpt: "", content: "", status: "draft", isUrgent: false, isHeadline: false, journalistId: "", scheduledFor: "", updatedAt: "الآن" }); }
   
   async function save(event: FormEvent) { 
       event.preventDefault(); 
@@ -64,16 +70,22 @@ export default function NewsStudio({ canPublish = true, canReview = false }: { c
           finalStatus = editing.scheduledFor ? "scheduled" : "published";
       }
 
+      const session = (await supabase.auth.getSession()).data.session;
+      if (!session?.user) { setNotice("انتهت جلسة الدخول، سجّل الدخول تاني."); return; }
       const payload = { 
           title: editing.title.trim(), 
           slug: editing.id === "new" ? `${Date.now()}-${editing.title.trim().toLowerCase().replace(/\\s+/g, "-")}` : undefined, 
           excerpt: editing.excerpt, 
           content: JSON.stringify([editing.content]), 
           status: finalStatus, 
+          published_at: finalStatus === "published" ? new Date().toISOString() : null,
+          created_by: editing.id === "new" ? session.user.id : undefined,
+          updated_by: session.user.id,
           is_urgent: editing.isUrgent, 
           is_headline: editing.isHeadline, 
           scheduled_for: editing.scheduledFor ? new Date(editing.scheduledFor).toISOString() : null, 
-          author_name: "فريق يحدث الآن" 
+          author_name: journalists.find((journalist) => journalist.id === editing.journalistId)?.display_name || "فريق يحدث الآن",
+          journalist_id: editing.journalistId || null
       }; 
       
       const result = editing.id === "new" ? await supabase.from("articles").insert(payload) : await supabase.from("articles").update(payload).eq("id", editing.id); 
@@ -164,6 +176,14 @@ export default function NewsStudio({ canPublish = true, canReview = false }: { c
                     <div className="flex flex-col gap-2">
                        <label className="text-sm font-semibold opacity-90 pl-2">الملخص الافتتاحي (Excerpt)</label>
                        <textarea rows={2} value={editing.excerpt} onChange={(e) => update({ excerpt: e.target.value })} placeholder="يظهر في الصفحة الرئيسية ووسائل التواصل الاجتماعي..." className="glass-input resize-none py-3" />
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                       <label className="text-sm font-semibold opacity-90 pl-2">الصحفي / المراسل</label>
+                       <select value={editing.journalistId} onChange={(e) => update({ journalistId: e.target.value })} className="glass-input h-12">
+                         <option value="">فريق يحدث الآن</option>
+                         {journalists.map((journalist) => <option key={journalist.id} value={journalist.id}>{journalist.display_name}</option>)}
+                       </select>
                     </div>
 
                     <div className="flex flex-col gap-2 relative mt-4">

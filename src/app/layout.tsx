@@ -4,8 +4,8 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://yahduth-al-an-24-admin.vercel.app"),
   icons: { icon: "/favicon.png", shortcut: "/favicon.png", apple: "/favicon.png" },
-  openGraph: { title: "يحدث الآن 24 | لوحة التحكم", description: "إدارة منصة يحدث الآن 24", images: [{ url: "/logo.jpg", width: 1408, height: 768, alt: "شعار يحدث الآن 24" }] },
-  twitter: { card: "summary_large_image", images: ["/logo.jpg"] },
+  openGraph: { title: "يحدث الآن 24 | لوحة التحكم", description: "إدارة منصة يحدث الآن 24", images: [{ url: "/brand-logo.jpg", width: 1408, height: 768, alt: "شعار يحدث الآن 24" }] },
+  twitter: { card: "summary_large_image", images: ["/brand-logo.jpg"] },
   title: "يحدث الآن | لوحة التحكم",
   description: "تسجيل الدخول إلى لوحة تحكم يحدث الآن",
 };

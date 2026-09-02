@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -244,7 +244,7 @@ export default function SystemManager() {
 
       {notice && (
         <div className="mb-4 bg-primary/10 text-primary border border-primary/30 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
-          <span className="text-lg">✓</span> {notice}
+          <span className="text-lg">?</span> {notice}
         </div>
       )}
 
@@ -520,3 +520,4 @@ export default function SystemManager() {
     </div>
   );
 }
+

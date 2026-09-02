@@ -68,6 +68,9 @@ const groups = [
       { key: "settings.maintenance", label: "تفعيل وضع الصيانة" },
       { key: "settings.social", label: "إدارة السوشيال ميديا" },
       { key: "users.manage", label: "إدارة حسابات الموظفين" },
+      { key: "team.manage", label: "إدارة الفريق" },
+      { key: "categories.manage", label: "إدارة الأقسام" },
+      { key: "stats.view", label: "عرض الإحصائيات" },
     ]
   },
 ];
