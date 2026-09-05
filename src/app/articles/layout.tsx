@@ -3,6 +3,6 @@ import AdminShell from "@/components/AdminShell";
 import { requirePermission } from "@/lib/authorization";
 
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
-  await requirePermission("profile");
-  return <AdminShell title="حسابي">{children}</AdminShell>;
+  await requirePermission("content");
+  return <AdminShell title="إدارة الأخبار">{children}</AdminShell>;
 }

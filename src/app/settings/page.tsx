@@ -3,15 +3,16 @@
 import { ArrowRight, Save, Settings2 } from "lucide-react";
 import { useEffect, useState } from "react";
 
-type Tab = "contact" | "live" | "maintenance" | "password";
+type Tab = "contact" | "live" | "maintenance" | "protection" | "password";
 type LiveStream = { enabled?: boolean; platform?: string; url?: string };
 type Settings = {
   contact_phone: string | null; contact_address: string | null; contact_whatsapp: string | null;
   social_facebook: string | null; social_twitter: string | null; social_youtube: string | null;
   live_streams: LiveStream | null;
   maintenance_enabled: boolean | null; maintenance_message: string | null; maintenance_ends_at: string | null;
+  content_protection_enabled: boolean | null; anti_adblock_enabled: boolean | null;
 };
-const tabs: [Tab, string][] = [["contact", "التواصل"], ["live", "البث المباشر"], ["maintenance", "الصيانة"], ["password", "طلبات الباسورد"]];
+const tabs: [Tab, string][] = [["contact", "التواصل"], ["live", "البث المباشر"], ["maintenance", "الصيانة"], ["protection", "الحماية"], ["password", "طلبات الباسورد"]];
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<Tab>("contact");
@@ -46,6 +47,8 @@ export default function SettingsPage() {
       maintenance_enabled: settings.maintenance_enabled === true,
       maintenance_message: settings.maintenance_message ?? "",
       maintenance_ends_at: maintenanceEnds ? new Date(maintenanceEnds).toISOString() : null,
+      content_protection_enabled: settings.content_protection_enabled === true,
+      anti_adblock_enabled: settings.anti_adblock_enabled === true,
     };
     const response = await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(patch) });
     const result = (await response.json()) as { message?: string; error?: string };
@@ -63,6 +66,7 @@ export default function SettingsPage() {
         {tab === "contact" && <div className="grid gap-4 sm:grid-cols-2"><Input label="رقم الهاتف" value={settings.contact_phone ?? ""} onChange={v => set("contact_phone", v)} placeholder="+20 100 000 0000" /><Input label="رقم واتساب" value={settings.contact_whatsapp ?? ""} onChange={v => set("contact_whatsapp", v)} placeholder="https://wa.me/201000" /><Input label="العنوان" value={settings.contact_address ?? ""} onChange={v => set("contact_address", v)} placeholder="المدينة، العنوان" /><Input label="فيسبوك" value={settings.social_facebook ?? ""} onChange={v => set("social_facebook", v)} placeholder="https://facebook.com/..." /><Input label="تويتر / X" value={settings.social_twitter ?? ""} onChange={v => set("social_twitter", v)} placeholder="https://x.com/..." /><Input label="يوتيوب" value={settings.social_youtube ?? ""} onChange={v => set("social_youtube", v)} placeholder="https://youtube.com/..." /></div>}
         {tab === "live" && <div className="space-y-4"><Toggle label="تفعيل البث المباشر" enabled={live.enabled === true} onChange={v => setLive(current => ({ ...current, enabled: v }))} /><div className="grid gap-4 sm:grid-cols-2"><Input label="منصة البث" value={live.platform ?? ""} onChange={v => setLive(current => ({ ...current, platform: v }))} placeholder="YouTube أو Facebook" /><Input label="رابط البث" dir="ltr" value={live.url ?? ""} onChange={v => setLive(current => ({ ...current, url: v }))} placeholder="https://youtube.com/live/..." /></div></div>}
         {tab === "maintenance" && <div className="space-y-4"><Toggle label="تفعيل وضع الصيانة (الموقع يقفل للزوار)" enabled={settings.maintenance_enabled === true} onChange={v => setSettings(current => current ? { ...current, maintenance_enabled: v } : current)} /><div className="grid gap-4 sm:grid-cols-2"><Input label="رسالة الصيانة" value={settings.maintenance_message ?? ""} onChange={v => set("maintenance_message", v)} placeholder="الموقع تحت الصيانة حالياً" /><label className="text-sm font-semibold">ينتهي في (اختياري)<input type="datetime-local" dir="ltr" value={maintenanceEnds} onChange={event => setMaintenanceEnds(event.target.value)} className="admin-input mt-1.5" /></label></div></div>}
+        {tab === "protection" && <div className="space-y-4"><Toggle label="منع النسخ والزر الأيمن في الموقع العام" enabled={settings.content_protection_enabled === true} onChange={v => setSettings(current => current ? { ...current, content_protection_enabled: v } : current)} /><Toggle label="إظهار رسالة لإيقاف مانع الإعلانات" enabled={settings.anti_adblock_enabled === true} onChange={v => setSettings(current => current ? { ...current, anti_adblock_enabled: v } : current)} /><p className="rounded-lg bg-muted/50 p-3 text-xs leading-6 text-muted-foreground">تُطبّق هذه الخيارات على الموقع العام بعد الحفظ. حماية الواجهة لا تُغني عن حماية البيانات والصلاحيات في الخادم.</p></div>}
         {tab === "password" && <div className="flex items-center gap-3 rounded-lg border p-4"><Settings2 size={20} className="text-primary" /><div className="flex-1"><p className="text-sm font-bold">طلبات استعادة كلمة المرور</p><p className="text-xs text-muted-foreground">لوحة الموافقة والرفض — للمدير العام</p></div><a href="/password-requests" className="interactive-button rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground">فتح اللوحة</a></div>}
       </div></section>
       <button disabled={busy} onClick={save} className="interactive-button mt-6 flex items-center gap-2 rounded-lg bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-60"><Save size={17} />{busy ? "جاري الحفظ..." : "حفظ الإعدادات"}</button>

@@ -22,7 +22,7 @@ export async function PUT(request: NextRequest) {
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "بيانات الحفظ غير صحيحة" }, { status: 400 });
   // الأعمدة المسموح بها فقط — الحماية من كتابة أعمدة غريبة
-  const allowedColumns = ["founder_name", "founder_description", "founder_image_url", "founder_contact_url", "contact_phone", "contact_address", "contact_whatsapp", "social_facebook", "social_twitter", "social_youtube", "live_streams", "maintenance_enabled", "maintenance_message", "maintenance_ends_at"];
+  const allowedColumns = ["founder_name", "founder_description", "founder_image_url", "founder_contact_url", "contact_phone", "contact_address", "contact_whatsapp", "social_facebook", "social_twitter", "social_youtube", "live_streams", "maintenance_enabled", "maintenance_message", "maintenance_ends_at", "content_protection_enabled", "anti_adblock_enabled", "ads"];
   const patch: Record<string, unknown> = {};
   for (const key of allowedColumns) if (key in body) patch[key] = body[key];
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "مفيش بيانات للحفظ" }, { status: 400 });

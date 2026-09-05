@@ -1,6 +1,5 @@
-import { requirePermission } from "@/lib/authorization";
+import type { ReactNode } from "react";
 
-export default async function NewArticleLayout({ children }: { children: React.ReactNode }) {
-  await requirePermission("content");
+export default function NewArticleLayout({ children }: { children: ReactNode }) {
   return children;
 }

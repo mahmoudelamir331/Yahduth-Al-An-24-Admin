@@ -9,7 +9,7 @@ const maxFileSize = 10 * 1024 * 1024;
 export async function POST(request: Request) {
   const access = await getCurrentAccess();
   if (!access.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-  if (!hasPermission(access, "content")) return NextResponse.json({ error: "ليس لديك صلاحية رفع ملفات الأخبار" }, { status: 403 });
+  if (!hasPermission(access, "content") && !hasPermission(access, "ads")) return NextResponse.json({ error: "ليس لديك صلاحية رفع الملفات" }, { status: 403 });
 
   const form = await request.formData();
   const file = form.get("file");
@@ -18,7 +18,8 @@ export async function POST(request: Request) {
   if (file.size === 0 || file.size > maxFileSize) return NextResponse.json({ error: "حجم الصورة يجب أن يكون بين 1 بايت و10 ميجابايت" }, { status: 400 });
 
   const supabase = await createClient();
-  const path = `articles/${crypto.randomUUID()}.${extensions[file.type]}`;
+  const area = request.headers.get("x-upload-area") === "ads" ? "ads" : "articles";
+  const path = `${area}/${crypto.randomUUID()}.${extensions[file.type]}`;
   const result = await supabase.storage.from("news-media").upload(path, file, { contentType: file.type, upsert: false });
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
   return NextResponse.json({ path, url: supabase.storage.from("news-media").getPublicUrl(path).data.publicUrl });
