@@ -1,10 +1,17 @@
 import { redirect } from "next/navigation";
-import type { User } from "@supabase/supabase-js";
+import { createClient as createServiceClient, type User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";
 
 export const adminPermissions = ["dashboard", "content", "live", "ads", "settings", "team", "profile", "passwordRequests"] as const;
 export type AdminPermission = (typeof adminPermissions)[number];
 type PermissionRecord = Record<string, boolean>;
+
+type PermissionValue = Record<string, unknown> | string[] | null | undefined;
+function normalizePermissions(value: PermissionValue): PermissionRecord {
+  if (Array.isArray(value)) return Object.fromEntries(value.filter((key): key is string => typeof key === "string").map(key => [key, true]));
+  if (!value || typeof value !== "object") return {};
+  return Object.fromEntries(Object.entries(value).filter(([, enabled]) => enabled === true || enabled === "true" || enabled === 1).map(([key]) => [key, true]));
+}
 export type AdminAccess = {
   user: User | null;
   role: string | null;
@@ -41,9 +48,16 @@ export async function getCurrentAccess(): Promise<AdminAccess> {
   const authResult = await supabase.auth.getUser();
   const user = authResult.data.user;
   if (!user) return { user: null, role: null, permissions: {}, navigationPermissions: getNavigationPermissions(null, {}) };
-  const result = await supabase.from("user_permissions").select("role,permissions").eq("user_id", user.id).maybeSingle();
-  const row = result.data as { role?: string; permissions?: Record<string, boolean> } | null;
-  const permissions = row?.permissions ?? {};
+  let result = await supabase.from("user_permissions").select("role,permissions").eq("user_id", user.id).maybeSingle();
+  let row = result.data as { role?: string; permissions?: PermissionValue } | null;
+  const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!row && serviceRole && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    const admin = createServiceClient(process.env.NEXT_PUBLIC_SUPABASE_URL, serviceRole, { auth: { autoRefreshToken: false, persistSession: false } });
+    const adminResult = await admin.from("user_permissions").select("role,permissions").eq("user_id", user.id).maybeSingle();
+    row = adminResult.data as { role?: string; permissions?: PermissionValue } | null;
+    if (adminResult.error) result = adminResult;
+  }
+  const permissions = normalizePermissions(row?.permissions);
   const role = row?.role ?? null;
   return { user, role, permissions, navigationPermissions: getNavigationPermissions(role, permissions) };
 }

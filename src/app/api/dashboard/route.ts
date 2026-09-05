@@ -31,7 +31,7 @@ export async function GET() {
   const live = liveSettings?.enabled ? [{ title: liveSettings.title || "البث المباشر", viewers: 0 }] : [];
   const totalViews = rows.reduce((sum, item) => sum + Number(item.views_count ?? 0), 0);
   return NextResponse.json({
-    stats: { published: rows.filter((item) => item.status === "published").length, pending: rows.filter((item) => item.status !== "published").length, views: new Intl.NumberFormat("ar-EG", { notation: "compact" }).format(totalViews), live: live.length },
+    stats: { published: rows.filter((item) => item.status === "published").length, pending: rows.filter((item) => item.status !== "published").length, views: new Intl.NumberFormat("ar-EG", { notation: "compact" }).format(totalViews), live: live.length, categories: categoriesResult.data?.length ?? 0, staff: staffResult.count ?? 0 },
     staff: staffResult.count ?? 0,
     articles: mapped,
     categories: categoriesResult.data ?? [],
