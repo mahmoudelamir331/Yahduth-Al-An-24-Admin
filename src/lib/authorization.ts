@@ -35,6 +35,9 @@ function allNavigationPermissions() {
 }
 
 export function hasPermission(access: Pick<AdminAccess, "role" | "permissions">, permission: AdminPermission) {
+  // Every authenticated staff member with a valid role needs a safe landing page
+  // and access to their own profile; all other sections remain permission-gated.
+  if (permission === "dashboard" || permission === "profile") return Boolean(access.role);
   return access.role === "super_admin" || permissionAliases[permission].some((alias) => access.permissions[alias] === true);
 }
 
