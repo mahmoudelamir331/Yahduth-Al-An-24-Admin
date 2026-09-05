@@ -51,6 +51,6 @@ export async function getCurrentAccess(): Promise<AdminAccess> {
 export async function requirePermission(permission: AdminPermission) {
   const access = await getCurrentAccess();
   if (!access.user) redirect("/login");
-  if (!hasPermission(access, permission)) redirect("/");
+  if (!hasPermission(access, permission)) redirect(`/unauthorized?permission=${permission}`);
   return access;
 }
