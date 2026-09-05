@@ -253,6 +253,34 @@
   font-size: .95rem;
 }
 
+.passwordToggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2.25rem;
+  height: 2.25rem;
+  border: 0;
+  border-radius: .5rem;
+  padding: 0;
+  background: transparent;
+  color: #81938c;
+  cursor: pointer;
+  transition: color 160ms, background-color 160ms, transform 160ms;
+}
+.passwordToggle:hover {
+  color: #228d85;
+  background: #e8f4ef;
+  transform: scale(1.08);
+}
+.passwordToggle:active {
+  transform: scale(.92);
+}
+.passwordToggle:focus-visible {
+  outline: 2px solid #228d85;
+  outline-offset: 2px;
+}
+
 .inputWrap input::placeholder {
   color: #89999e;
   opacity: 1;

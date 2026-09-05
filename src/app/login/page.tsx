@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, LoaderCircle, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, LoaderCircle, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type FormEvent, useState } from "react";
@@ -11,6 +11,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -69,7 +70,10 @@ export default function LoginPage() {
             </div>
             <div className={styles.inputWrap}>
               <LockKeyhole size={19} aria-hidden="true" />
-              <input id="password" required type="password" dir="ltr" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="••" />
+              <input id="password" required type={showPassword ? "text" : "password"} dir="ltr" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" placeholder="••" />
+              <button type="button" className={styles.passwordToggle} onClick={() => setShowPassword((prev) => !prev)} aria-label={showPassword ? "إخفاء كلمة المرور" : "إظهار كلمة المرور"}>
+                {showPassword ? <EyeOff size={19} aria-hidden="true" /> : <Eye size={19} aria-hidden="true" />}
+              </button>
             </div>
             {error && <p role="alert" className={styles.error}>{error}</p>}
             <button type="submit" disabled={busy} className={styles.submit}>
