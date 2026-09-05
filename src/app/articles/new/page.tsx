@@ -9,10 +9,10 @@ import { createClient } from "@/lib/supabase-browser";
 export default function NewArticlePage() {
   const router = useRouter();
   const [title, setTitle] = useState(""); const [cover, setCover] = useState(""); const [categoryId, setCategoryId] = useState(""); const [content, setContent] = useState("");
-  const [categories, setCategories] = useState<{ id: number; name: string }[]>([]);
+  const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [message, setMessage] = useState("");
 
-  useEffect(() => { createClient().from("categories").select("id,name").eq("is_active", true).order("name").then(({ data }) => setCategories((data ?? []) as { id: number; name: string }[])); }, []);
+  useEffect(() => { createClient().from("categories").select("id,name").eq("is_active", true).order("name").then(({ data }) => setCategories((data ?? []) as { id: string; name: string }[])); }, []);
 
   async function upload(file: File) {
     setError("");
@@ -28,7 +28,8 @@ export default function NewArticlePage() {
     setBusy(true); setError(""); setMessage("");
     if (!title.trim()) { setError("اكتب عنوان الخبر الأول"); setBusy(false); return; }
     const { data: userData } = await createClient().auth.getUser();
-    const { error } = await createClient().from("articles").insert({ title: title.trim(), content, cover_image_url: cover || null, category_id: categoryId ? Number(categoryId) : null, status: "draft", author_id: userData.user?.id ?? null });
+    const authorName = typeof userData.user?.user_metadata?.full_name === "string" && userData.user.user_metadata.full_name.trim() ? userData.user.user_metadata.full_name.trim() : userData.user?.email ?? "فريق التحرير";
+    const { error } = await createClient().from("articles").insert({ title: title.trim(), excerpt: "", content, cover_image_url: cover || null, category_id: categoryId || null, status: "draft", author_name: authorName, created_by: userData.user?.id ?? null, updated_by: userData.user?.id ?? null });
     if (error) { setError("تعذر الحفظ: " + error.message); setBusy(false); return; }
     setMessage("تم حفظ الخبر كمسودة"); setTimeout(() => router.push("/articles"), 1200);
   }
