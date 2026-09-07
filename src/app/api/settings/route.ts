@@ -19,6 +19,7 @@ const allowedColumns = [
   "maintenance_ends_at",
   "logo_url",
   "favicon_url",
+  "live_streams",
 ];
 
 export async function GET() {
