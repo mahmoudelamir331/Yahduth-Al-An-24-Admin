@@ -63,15 +63,25 @@ export async function PATCH(request: NextRequest) {
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   const id = body?.id;
-  const isActive = body?.is_active;
-  if ((typeof id !== "number" && typeof id !== "string") || typeof isActive !== "boolean") {
-    return NextResponse.json({ error: "معرف التصنيف وحالته مطلوبان" }, { status: 400 });
+  if (typeof id !== "number" && typeof id !== "string") {
+    return NextResponse.json({ error: "معرف التصنيف مطلوب" }, { status: 400 });
   }
+
+  const patch: Record<string, unknown> = {};
+  const name = normalizeName(body?.name);
+  if (name) patch.name = name;
+  const slugInput = typeof body?.slug === "string" ? body.slug.trim() : "";
+  const slug = slugInput ? normalizeSlug(slugInput, "") : "";
+  if (slug) patch.slug = slug;
+  else if (name) patch.slug = normalizeSlug(null, name);
+  if (typeof body?.is_active === "boolean") patch.is_active = body.is_active;
+
+  if (Object.keys(patch).length === 0) return NextResponse.json({ error: "لا توجد بيانات للتعديل" }, { status: 400 });
 
   const supabase = createServiceClient();
   const result = await supabase
     .from("categories")
-    .update({ is_active: isActive })
+    .update(patch)
     .eq("id", id)
     .select("id,name,slug,is_active")
     .maybeSingle();
@@ -80,6 +90,27 @@ export async function PATCH(request: NextRequest) {
   revalidatePath("/");
   revalidatePath("/category/[slug]", "page");
   return NextResponse.json({ category: result.data });
+}
+
+export async function DELETE(request: NextRequest) {
+  const auth = await requireCategoryAccess();
+  if ("response" in auth) return auth.response;
+
+  const body = (await request.json().catch(() => null)) as { id?: number | string } | null;
+  const id = body?.id;
+  if (typeof id !== "number" && typeof id !== "string") {
+    return NextResponse.json({ error: "معرف التصنيف مطلوب" }, { status: 400 });
+  }
+
+  const supabase = createServiceClient();
+  // افصل المقالات المرتبطة بالقسم قبل الحذف حتى لا يحدث تعارض في قيود المفاتيح الأجنبية
+  await supabase.from("articles").update({ category_id: null }).eq("category_id", id);
+  const result = await supabase.from("categories").delete().eq("id", id).select("id").maybeSingle();
+  if (result.error) return NextResponse.json({ error: result.error.message }, { status: 400 });
+  if (!result.data) return NextResponse.json({ error: "التصنيف غير موجود" }, { status: 404 });
+  revalidatePath("/");
+  revalidatePath("/category/[slug]", "page");
+  return NextResponse.json({ ok: true });
 }
 
 export const dynamic = "force-dynamic";
