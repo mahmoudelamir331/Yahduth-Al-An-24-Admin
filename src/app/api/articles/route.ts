@@ -74,6 +74,8 @@ export async function POST(request: NextRequest) {
       ? access.user.user_metadata.full_name.trim()
       : access.user.email ?? "فريق التحرير";
 
+  const status = typeof body?.status === "string" && ["draft", "published", "review"].includes(body.status) ? body.status : "draft";
+
   const payload = {
     title,
     slug,
@@ -81,7 +83,8 @@ export async function POST(request: NextRequest) {
     content: contentArray,
     cover_image_url: typeof body?.cover_image_url === "string" && body.cover_image_url ? body.cover_image_url : null,
     category_id: typeof body?.category_id === "string" && body.category_id ? body.category_id : null,
-    status: typeof body?.status === "string" && ["draft", "published", "review"].includes(body.status) ? body.status : "draft",
+    status,
+    published_at: status === "published" ? new Date().toISOString() : null,
     author_name: authorName,
     created_by: access.user.id,
     updated_by: access.user.id,

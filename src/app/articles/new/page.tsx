@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, ImagePlus, Save } from "lucide-react";
+import { ArrowRight, ImagePlus, Save, Send } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -40,7 +40,7 @@ export default function NewArticlePage() {
     setCover(result.url);
   }
 
-  async function save() {
+  async function save(status: "draft" | "published") {
     setBusy(true);
     setError("");
     setMessage("");
@@ -64,7 +64,7 @@ export default function NewArticlePage() {
           content: contentArray,
           cover_image_url: cover || null,
           category_id: categoryId || null,
-          status: "draft",
+          status,
         }),
       });
 
@@ -75,7 +75,7 @@ export default function NewArticlePage() {
         return;
       }
 
-      setMessage("تم حفظ الخبر كمسودة ✓");
+      setMessage(status === "published" ? "تم نشر الخبر ✓" : "تم حفظ الخبر كمسودة ✓");
       setTimeout(() => router.push("/articles"), 1200);
     } catch {
       setError("تعذر الاتصال بالخادم لحفظ الخبر");
@@ -86,9 +86,12 @@ export default function NewArticlePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <div className="mx-auto max-w-5xl px-3 py-3 sm:px-6 sm:py-5">
-        <header className="mb-4 flex items-center justify-between">
+        <header className="mb-4 flex items-center justify-between gap-3">
           <button onClick={() => router.push("/")} className="interactive-button flex items-center gap-1 rounded-lg px-2 py-2 text-sm text-muted-foreground hover:bg-muted"><ArrowRight size={17} />رجوع للوحة</button>
-          <button disabled={busy} onClick={save} className="interactive-button flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-60"><Save size={17} />{busy ? "جاري الحفظ..." : "حفظ كمسودة"}</button>
+          <div className="flex items-center gap-2">
+            <button disabled={busy} onClick={() => save("published")} className="interactive-button flex items-center gap-2 rounded-lg border border-emerald-600 px-4 py-2.5 text-sm font-bold text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 disabled:opacity-60" title="نشر الخبر مباشرة في الموقع"><Send size={17} />{busy ? "جاري النشر..." : "نشر الآن"}</button>
+            <button disabled={busy} onClick={() => save("draft")} className="interactive-button flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-60"><Save size={17} />{busy ? "جاري الحفظ..." : "حفظ كمسودة"}</button>
+          </div>
         </header>
         {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700 dark:bg-rose-950/40 dark:text-rose-300">{error}</p>}
         {message && <p role="status" className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">{message}</p>}
