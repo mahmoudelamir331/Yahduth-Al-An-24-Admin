@@ -18,6 +18,7 @@ const sections: SidebarSection[] = [
   { label: "البث المباشر", icon: Radio, href: "/live", permission: "live" },
   { label: "الإعلانات", icon: Megaphone, href: "/ads", permission: "ads" },
   { label: "إعدادات الموقع", icon: Settings, href: "/settings", permission: "settings" },
+  { label: "الصفحات الثابتة", icon: FileText, href: "/static-pages", permission: "settings" },
   { label: "الفريق والصلاحيات", icon: ShieldCheck, href: "/team", permission: "team" },
   { label: "طلبات الباسورد", icon: ShieldCheck, href: "/password-requests", permission: "passwordRequests" },
   { label: "حسابي", icon: User, href: "/profile", permission: "profile" },
