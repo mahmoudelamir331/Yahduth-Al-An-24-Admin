@@ -12,6 +12,7 @@ export default function NewArticlePage() {
   const [cover, setCover] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [content, setContent] = useState("");
+  const [savedArticleId, setSavedArticleId] = useState<number | null>(null);
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -68,14 +69,20 @@ export default function NewArticlePage() {
         }),
       });
 
-      const json = await res.json() as { ok?: boolean; error?: string };
-      if (!res.ok || !json.ok) {
-        setError("تعذر الحفظ: " + (json.error || "خطأ غير معروف"));
+      const json = await res.json() as {
+        ok?: boolean;
+        error?: string;
+        article?: { id?: number | string };
+      };
+      const returnedId = Number(json.article?.id);
+      if (!res.ok || !json.ok || !Number.isInteger(returnedId) || returnedId <= 0) {
+        setError("تعذر الحفظ: " + (json.error || "لم يرجع الخادم رقم الخبر"));
         setBusy(false);
         return;
       }
 
-      setMessage(status === "published" ? "تم نشر الخبر ✓" : "تم حفظ الخبر كمسودة ✓");
+      setSavedArticleId(returnedId);
+      setMessage(status === "published" ? `تم نشر الخبر رقم ${returnedId} ✓` : `تم حفظ الخبر رقم ${returnedId} كمسودة ✓`);
       setTimeout(() => router.push("/articles"), 1200);
     } catch {
       setError("تعذر الاتصال بالخادم لحفظ الخبر");

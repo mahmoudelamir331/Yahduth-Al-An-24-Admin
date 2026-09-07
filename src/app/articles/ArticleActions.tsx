@@ -9,6 +9,10 @@ export default function ArticleActions({ id, status }: { id: number; status: str
 
   async function changeStatus(next: "published" | "draft" | "review") {
     if (busy) return;
+    if (!Number.isInteger(id) || id <= 0) {
+      alert("رقم الخبر غير صحيح");
+      return;
+    }
     setBusy(true);
     try {
       const response = await fetch(`/api/articles/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: next }) });
@@ -20,6 +24,10 @@ export default function ArticleActions({ id, status }: { id: number; status: str
   }
 
   async function remove() {
+    if (!Number.isInteger(id) || id <= 0) {
+      alert("رقم الخبر غير صحيح");
+      return;
+    }
     if (!confirm("حذف هذا الخبر نهائياً؟")) return;
     if (busy) return;
     setBusy(true);
