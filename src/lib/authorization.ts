@@ -71,3 +71,35 @@ export async function requirePermission(permission: AdminPermission) {
   if (!hasPermission(access, permission)) redirect(`/unauthorized?permission=${permission}`);
   return access;
 }
+
+export const actionPermissions = ["article.view", "article.create", "article.edit", "article.delete", "categories.manage", "live.edit", "ads.create", "ads.edit", "ads.delete", "settings.manage", "team.add", "team.permissions"] as const;
+export type ActionPermission = (typeof actionPermissions)[number];
+
+export function hasActionPermission(access: Pick<AdminAccess, "role" | "permissions">, permission: ActionPermission) {
+  if (access.role === "super_admin") return true;
+  if (access.permissions[permission] === true) return true;
+  if (permission === "article.view") return ["article.create", "article.edit", "article.delete", "categories.manage", "content", "manage_content"].some((key) => access.permissions[key] === true);
+  if (permission.startsWith("article.")) return access.permissions.content === true || access.permissions.manage_content === true;
+  if (permission === "categories.manage") return access.permissions.content === true || access.permissions.manage_content === true;
+  if (permission === "live.edit") return access.permissions.live === true || access.permissions.manage_live === true;
+  if (permission.startsWith("ads.")) return access.permissions.ads === true || access.permissions.manage_ads === true;
+  if (permission === "settings.manage") return access.permissions.settings === true || access.permissions.manage_settings === true;
+  return false;
+}
+
+type AuthorizedAccess = Omit<AdminAccess, "user"> & { user: User };
+type ApiPermissionResult = { access: AuthorizedAccess } | { response: Response };
+
+export async function requireApiActionPermission(permission: ActionPermission): Promise<ApiPermissionResult> {
+  const access = await getCurrentAccess();
+  if (!access.user) return { response: Response.json({ error: "غير مصرح" }, { status: 401 }) };
+  if (!hasActionPermission(access, permission)) return { response: Response.json({ error: "ليس لديك الصلاحية المطلوبة" }, { status: 403 }) };
+  return { access: access as AuthorizedAccess };
+}
+
+export async function requireApiSuperAdmin(): Promise<ApiPermissionResult> {
+  const access = await getCurrentAccess();
+  if (!access.user) return { response: Response.json({ error: "غير مصرح" }, { status: 401 }) };
+  if (access.role !== "super_admin") return { response: Response.json({ error: "هذه العملية للمدير العام فقط" }, { status: 403 }) };
+  return { access: access as AuthorizedAccess };
+}
