@@ -1,19 +1,13 @@
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getCurrentAccess, hasPermission } from "@/lib/authorization";
-import { createClient } from "@/lib/supabase-server";
-
-function canManageCategories(access: Awaited<ReturnType<typeof getCurrentAccess>>) {
-  return Boolean(access.user && hasPermission(access, "content"));
-}
+import { requireApiActionPermission } from "@/lib/authorization";
+import { createServiceClient } from "@/lib/supabase-server";
 
 async function requireCategoryAccess() {
-  const access = await getCurrentAccess();
-  if (!access.user) return { response: NextResponse.json({ error: "غير مصرح" }, { status: 401 }) } as const;
-  if (!canManageCategories(access)) {
-    return { response: NextResponse.json({ error: "ليس لديك صلاحية إدارة التصنيفات" }, { status: 403 }) } as const;
-  }
-  return { access } as const;
+  const result = await requireApiActionPermission("categories.manage");
+  if ("response" in result) return result;
+  return result;
 }
 
 function normalizeName(value: unknown) {
@@ -33,7 +27,7 @@ export async function GET() {
   const auth = await requireCategoryAccess();
   if ("response" in auth) return auth.response;
 
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const result = await supabase
     .from("categories")
     .select("id,name,slug,is_active")
@@ -51,13 +45,15 @@ export async function POST(request: NextRequest) {
   const slug = normalizeSlug(body?.slug, name);
   if (!name || !slug) return NextResponse.json({ error: "اسم التصنيف مطلوب" }, { status: 400 });
 
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const result = await supabase
     .from("categories")
     .insert({ name, slug, is_active: body?.is_active !== false })
     .select("id,name,slug,is_active")
     .single();
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 400 });
+  revalidatePath("/");
+  revalidatePath("/category/[slug]", "page");
   return NextResponse.json({ category: result.data }, { status: 201 });
 }
 
@@ -72,7 +68,7 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "معرف التصنيف وحالته مطلوبان" }, { status: 400 });
   }
 
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const result = await supabase
     .from("categories")
     .update({ is_active: isActive })
@@ -81,6 +77,8 @@ export async function PATCH(request: NextRequest) {
     .maybeSingle();
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 400 });
   if (!result.data) return NextResponse.json({ error: "التصنيف غير موجود" }, { status: 404 });
+  revalidatePath("/");
+  revalidatePath("/category/[slug]", "page");
   return NextResponse.json({ category: result.data });
 }
 

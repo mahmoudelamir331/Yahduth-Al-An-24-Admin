@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import type { User } from "@supabase/supabase-js";
-import { createClient as createAdminClient } from "@supabase/supabase-js";
-import { createClient as createServerClient } from "@/lib/supabase-server";
+import { requireApiSuperAdmin } from "@/lib/authorization";
+import { createAdminClient } from "@/lib/supabase-admin";
+import { createServiceClient } from "@/lib/supabase-server";
 
 const editableRoles = new Set(["editor", "reviewer"]);
 const editablePermissionKeys = new Set([
@@ -23,20 +24,12 @@ const editablePermissionKeys = new Set([
 
 type TeamAccess =
   | { response: NextResponse; supabase?: never; user?: never }
-  | { response?: never; supabase: Awaited<ReturnType<typeof createServerClient>>; user: User };
+  | { response?: never; supabase: ReturnType<typeof createServiceClient>; user: User };
 
 async function requireSuperAdmin(): Promise<TeamAccess> {
-  const supabase = await createServerClient();
-  const { data: authData } = await supabase.auth.getUser();
-  const user = authData.user;
-  if (!user) return { response: NextResponse.json({ error: "غير مصرح" }, { status: 401 }) };
-
-  const result = await supabase.from("user_permissions").select("role").eq("user_id", user.id).maybeSingle();
-  if ((result.data as { role?: string } | null)?.role !== "super_admin") {
-    return { response: NextResponse.json({ error: "هذه العملية للمدير العام فقط" }, { status: 403 }) };
-  }
-
-  return { supabase, user };
+  const permission = await requireApiSuperAdmin();
+  if ("response" in permission) return { response: NextResponse.json(await permission.response.json(), { status: permission.response.status }) };
+  return { supabase: createServiceClient(), user: permission.access.user! };
 }
 
 function getBody(request: NextRequest) {
@@ -97,9 +90,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "إعدادات إنشاء الحسابات غير مكتملة" }, { status: 500 });
   }
 
-  const admin = createAdminClient(supabaseUrl, serviceKey, { auth: { autoRefreshToken: false, persistSession: false } });
-  const tempPassword = `Yah${Math.random().toString(36).slice(2, 10)}!24`;
-  const created = await admin.auth.admin.createUser({ email, password: tempPassword, email_confirm: true, user_metadata: { full_name: name } });
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return NextResponse.json({ error: "إعدادات إنشاء الحسابات غير مكتملة" }, { status: 500 });
+  }
+  const password = typeof body?.password === "string" ? body.password : "";
+  if (password.length < 8) return NextResponse.json({ error: "كلمة السر يجب أن تكون 8 أحرف على الأقل" }, { status: 400 });
+  const created = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: name } });
   if (created.error) return NextResponse.json({ error: created.error.message }, { status: 500 });
 
   const newId = created.data.user?.id;
@@ -115,7 +114,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: permissionsResult.error?.message ?? profileResult.error?.message ?? "تعذر تجهيز حساب الموظف" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, message: `تم إنشاء حساب ${name} — الباسورد المؤقت: ${tempPassword} (ابعتله للموظف وهو يقدر يقدم طلب تغييره)` });
+  return NextResponse.json({ ok: true, message: `تم إنشاء حساب ${name} بنجاح` });
 }
 
 export async function PATCH(request: NextRequest) {
