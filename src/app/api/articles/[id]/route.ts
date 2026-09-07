@@ -8,10 +8,10 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   if (!hasActionPermission(access, "article.delete")) return NextResponse.json({ error: "ليس لديك صلاحية الحذف" }, { status: 403 });
 
   const { id } = await params;
-  const numericId = Number(id);
-  if (!Number.isInteger(numericId) || numericId <= 0) return NextResponse.json({ error: "رقم الخبر غير صحيح" }, { status: 400 });
+  const articleId = id?.trim();
+  if (!articleId || articleId === "undefined" || articleId === "null") return NextResponse.json({ error: "معرف الخبر غير صحيح" }, { status: 400 });
 
-  const result = await createServiceClient().from("articles").delete().eq("id", numericId).select("id").maybeSingle();
+  const result = await createServiceClient().from("articles").delete().eq("id", articleId).select("id").maybeSingle();
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
   if (!result.data) return NextResponse.json({ error: "الخبر غير موجود" }, { status: 404 });
   return NextResponse.json({ ok: true });
@@ -24,8 +24,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!hasActionPermission(access, "article.edit")) return NextResponse.json({ error: "ليس لديك صلاحية تعديل الخبر" }, { status: 403 });
 
   const { id } = await params;
-  const numericId = Number(id);
-  if (!Number.isInteger(numericId) || numericId <= 0) return NextResponse.json({ error: "رقم الخبر غير صحيح" }, { status: 400 });
+  const articleId = id?.trim();
+  if (!articleId || articleId === "undefined" || articleId === "null") return NextResponse.json({ error: "معرف الخبر غير صحيح" }, { status: 400 });
 
   const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "بيانات التعديل غير صحيحة" }, { status: 400 });
@@ -41,7 +41,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   patch.updated_by = access.user.id;
   patch.updated_at = new Date().toISOString();
 
-  const result = await createServiceClient().from("articles").update(patch).eq("id", numericId).select("id,title,status,published_at,category_id").maybeSingle();
+  const result = await createServiceClient().from("articles").update(patch).eq("id", articleId).select("id,title,status,published_at,category_id").maybeSingle();
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
   if (!result.data) return NextResponse.json({ error: "الخبر غير موجود" }, { status: 404 });
   return NextResponse.json({ ok: true, article: result.data });

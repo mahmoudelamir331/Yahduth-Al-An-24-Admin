@@ -3,14 +3,14 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-export default function ArticleActions({ id, status }: { id: number; status: string }) {
+export default function ArticleActions({ id, status }: { id: string | number; status: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
   async function changeStatus(next: "published" | "draft" | "review") {
     if (busy) return;
-    if (!Number.isInteger(id) || id <= 0) {
-      alert("رقم الخبر غير صحيح");
+    if (!String(id).trim() || String(id) === "undefined" || String(id) === "null") {
+      alert("معرف الخبر غير صحيح");
       return;
     }
     setBusy(true);
@@ -24,8 +24,8 @@ export default function ArticleActions({ id, status }: { id: number; status: str
   }
 
   async function remove() {
-    if (!Number.isInteger(id) || id <= 0) {
-      alert("رقم الخبر غير صحيح");
+    if (!String(id).trim() || String(id) === "undefined" || String(id) === "null") {
+      alert("معرف الخبر غير صحيح");
       return;
     }
     if (!confirm("حذف هذا الخبر نهائياً؟")) return;

@@ -95,7 +95,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "تعذر حفظ الخبر حاليًا" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, article: data }, { status: 201 });
+  const articleId = data && typeof data === "object" && "id" in data ? (data as { id?: string | number }).id : null;
+  if (articleId === null || articleId === undefined || String(articleId).trim() === "") {
+    return NextResponse.json({ error: "تم حفظ الخبر لكن الخادم لم يرجع معرفه" }, { status: 500 });
+  }
+  return NextResponse.json({ ok: true, article: { ...data, id: articleId } }, { status: 201 });
 }
 
 export const dynamic = "force-dynamic";
