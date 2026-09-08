@@ -12,7 +12,8 @@ export default function NewArticlePage() {
   const [cover, setCover] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [content, setContent] = useState("");
-  const [savedArticleId, setSavedArticleId] = useState<string | null>(null);
+  const [authorName, setAuthorName] = useState("");
+  const [publishedAt, setPublishedAt] = useState("");
   const [categories, setCategories] = useState<{ id: string; name: string }[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -65,6 +66,8 @@ export default function NewArticlePage() {
           content: contentArray,
           cover_image_url: cover || null,
           category_id: categoryId || null,
+          author_name: authorName.trim() || undefined,
+          published_at: publishedAt ? new Date(publishedAt).toISOString() : undefined,
           status,
         }),
       });
@@ -83,7 +86,6 @@ export default function NewArticlePage() {
         return;
       }
 
-      setSavedArticleId(returnedId);
       setMessage(status === "published" ? `تم نشر الخبر رقم ${returnedId} ✓` : `تم حفظ الخبر رقم ${returnedId} كمسودة ✓`);
       setTimeout(() => router.push("/articles"), 1200);
     } catch {
@@ -106,6 +108,7 @@ export default function NewArticlePage() {
         {message && <p role="status" className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">{message}</p>}
         <section className="rounded-xl border bg-card p-4 shadow-sm sm:p-8">
           <input value={title} onChange={(event) => setTitle(event.target.value)} className="w-full border-0 bg-transparent text-2xl font-black outline-none placeholder:text-muted-foreground sm:text-4xl" placeholder="عنوان الخبر" autoFocus />
+          <div className="my-4 grid gap-4 sm:grid-cols-2"><label className="text-sm font-bold">اسم الصحفي / الكاتب<input value={authorName} onChange={(event) => setAuthorName(event.target.value)} className="admin-input mt-1.5" placeholder="الاسم الظاهر للزوار" /></label><label className="text-sm font-bold">تاريخ النشر<input type="datetime-local" dir="ltr" value={publishedAt} onChange={(event) => setPublishedAt(event.target.value)} className="admin-input mt-1.5" /></label></div>
           <div className="my-6 grid gap-4 sm:grid-cols-[1fr_220px]">
             <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)} className="admin-input mt-0"><option value="">اختار القسم</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
             <label className="interactive-button flex cursor-pointer items-center justify-center gap-2 rounded-lg border-dashed px-3 py-2 text-sm text-muted-foreground hover:bg-muted"><ImagePlus size={17} />{cover ? "تم رفع الغلاف" : "رفع صورة الغلاف"}<input type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} /></label>

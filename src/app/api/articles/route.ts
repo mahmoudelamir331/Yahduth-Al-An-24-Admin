@@ -69,12 +69,16 @@ export async function POST(request: NextRequest) {
     contentArray = [""];
   }
 
-  const authorName =
+  const authorName = typeof body?.author_name === "string" && body.author_name.trim()
+    ? body.author_name.trim()
+    :
     typeof access.user.user_metadata?.full_name === "string" && access.user.user_metadata.full_name.trim()
       ? access.user.user_metadata.full_name.trim()
-      : access.user.email ?? "فريق التحرير";
+      : "فريق التحرير";
 
   const status = typeof body?.status === "string" && ["draft", "published", "review"].includes(body.status) ? body.status : "draft";
+  const requestedPublishedAt = typeof body?.published_at === "string" && body.published_at ? new Date(body.published_at) : null;
+  const publishedAt = status === "published" ? (requestedPublishedAt && !Number.isNaN(requestedPublishedAt.getTime()) ? requestedPublishedAt.toISOString() : new Date().toISOString()) : null;
 
   const payload = {
     title,
@@ -84,7 +88,7 @@ export async function POST(request: NextRequest) {
     cover_image_url: typeof body?.cover_image_url === "string" && body.cover_image_url ? body.cover_image_url : null,
     category_id: typeof body?.category_id === "string" && body.category_id ? body.category_id : null,
     status,
-    published_at: status === "published" ? new Date().toISOString() : null,
+    published_at: publishedAt,
     author_name: authorName,
     created_by: access.user.id,
     updated_by: access.user.id,
