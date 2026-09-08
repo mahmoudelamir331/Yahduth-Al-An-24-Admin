@@ -1,10 +1,15 @@
-"use client";
+import AdminShell from "@/components/AdminShell";
+import LiveStreamsManager from "@/components/LiveStreamsManager";
+import { requirePermission } from "@/lib/authorization";
 
-import { Radio, Save } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+export default async function LivePage() {
+  await requirePermission("live");
+  return <AdminShell title="البث المباشر"><main className="min-h-screen flex-1 bg-background p-4 text-foreground sm:p-8"><div className="mx-auto max-w-5xl"><LiveStreamsManager /></div></main></AdminShell>;
+}
 
-type LiveSettings = { enabled: boolean; platform: string; url: string; title: string };
-function youtubeId(url: string) { const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|live\/|embed\/))([^?&/]+)/); return match?.[1] ?? ""; }
+/* Legacy single-stream editor replaced by the database-backed playlist manager. */
+/* type LiveSettings = { enabled: boolean; platform: string; url: string; title: string }; */
+/*
 
 export default function LivePage() {
   const [settings, setSettings] = useState<LiveSettings>({ enabled: false, platform: "YouTube", url: "", title: "البث المباشر" });
@@ -15,3 +20,4 @@ export default function LivePage() {
   if (loading) return <main className="min-h-screen p-6"><div className="mx-auto max-w-4xl animate-pulse rounded-xl border bg-card p-8">جاري تحميل إعدادات البث...</div></main>;
   return <main className="min-h-screen flex-1 bg-background p-4 text-foreground sm:p-8"><div className="mx-auto max-w-4xl"><div className="mb-6"><p className="text-sm font-semibold text-primary">البث المباشر</p><h2 className="mt-1 text-2xl font-black">إدارة البث والمعاينة</h2></div>{message && <p role="status" className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">{message}</p>}{error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}<div className="grid gap-6 lg:grid-cols-[1fr_1.1fr]"><section className="rounded-xl border bg-card p-5 shadow-sm sm:p-6"><label className="flex cursor-pointer items-center justify-between rounded-lg border p-4 text-sm font-semibold hover:border-primary"><span>تفعيل البث المباشر</span><button type="button" onClick={() => setSettings(current => ({ ...current, enabled: !current.enabled }))} aria-label="تفعيل البث" className={`h-6 w-11 rounded-full p-1 transition-colors ${settings.enabled ? "bg-primary" : "bg-muted"}`}><span className={`block size-4 rounded-full bg-white transition-transform ${settings.enabled ? "-translate-x-5" : ""}`} /></button></label><label className="mt-4 block text-sm font-semibold">عنوان البث<input value={settings.title} onChange={event => setSettings(current => ({ ...current, title: event.target.value }))} className="admin-input mt-1.5" /></label><label className="mt-4 block text-sm font-semibold">رابط البث<input dir="ltr" value={settings.url} onChange={event => setSettings(current => ({ ...current, url: event.target.value }))} className="admin-input mt-1.5" placeholder="https://youtube.com/live/..." /></label><button disabled={saving} onClick={save} className="interactive-button mt-6 flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-60"><Save size={16} />{saving ? "جارٍ الحفظ..." : "حفظ الإعدادات"}</button><p className="mt-4 flex items-center gap-2 text-xs text-muted-foreground"><Radio size={14} className={settings.enabled ? "text-rose-600" : ""} />{settings.enabled ? "البث مفعل حاليًا ويظهر في الموقع الرئيسي" : "البث متوقف حاليًا"}</p></section><section className="overflow-hidden rounded-xl border bg-card shadow-sm"><div className="border-b p-4"><h3 className="font-bold">المعاينة الحية</h3><p className="mt-1 text-xs text-muted-foreground">تظهر المعاينة عند إدخال رابط YouTube صحيح.</p></div>{embedId ? <iframe title="معاينة البث المباشر" src={`https://www.youtube.com/embed/${embedId}`} className="aspect-video w-full" allow="autoplay; encrypted-media" allowFullScreen /> : <div className="grid aspect-video place-items-center bg-muted/30 p-6 text-center text-sm text-muted-foreground">لا توجد معاينة متاحة بعد.</div>}</section></div></div></main>;
 }
+*/

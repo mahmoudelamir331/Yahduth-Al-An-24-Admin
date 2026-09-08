@@ -25,7 +25,9 @@ const allowedColumns = [
 export async function GET() {
   const access = await getCurrentAccess();
   if (!access.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-  if (!hasActionPermission(access, "settings.manage")) return NextResponse.json({ error: "ليس لديك صلاحية التعديل" }, { status: 403 });
+  const canManageSettings = hasActionPermission(access, "settings.manage");
+  const canManageLive = hasActionPermission(access, "live.edit");
+  if (!canManageSettings && !canManageLive) return NextResponse.json({ error: "ليس لديك صلاحية التعديل" }, { status: 403 });
 
   const row = await createServiceClient().from("site_settings").select("*").eq("id", true).maybeSingle();
   if (row.error) return NextResponse.json({ error: row.error.message }, { status: 500 });
@@ -35,13 +37,17 @@ export async function GET() {
 export async function PUT(request: NextRequest) {
   const access = await getCurrentAccess();
   if (!access.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-  if (!hasActionPermission(access, "settings.manage")) return NextResponse.json({ error: "ليس لديك صلاحية التعديل" }, { status: 403 });
+  const canManageSettings = hasActionPermission(access, "settings.manage");
+  const canManageLive = hasActionPermission(access, "live.edit");
+  if (!canManageSettings && !canManageLive) return NextResponse.json({ error: "ليس لديك صلاحية التعديل" }, { status: 403 });
 
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   if (!body) return NextResponse.json({ error: "بيانات الحفظ غير صحيحة" }, { status: 400 });
 
   const patch: Record<string, unknown> = {};
-  for (const key of allowedColumns) if (key in body) patch[key] = body[key];
+  for (const key of allowedColumns) {
+    if (key in body && (canManageSettings || key === "live_streams")) patch[key] = body[key];
+  }
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "مفيش بيانات للحفظ" }, { status: 400 });
 
   patch.updated_by = access.user.id;
