@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { requireApiActionPermission } from "@/lib/authorization";
+import { apiSchemas, validateJson } from "@/lib/api-validation";
+import { writeAuditLog } from "@/lib/audit-log";
 import { createServiceClient } from "@/lib/supabase-server";
 
 type Ad = { id: string; title: string; url: string; active: boolean };
@@ -29,27 +31,28 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const auth = await authorize();
   if ("response" in auth) return auth.response;
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
-  const title = typeof body?.title === "string" ? body.title.trim() : "";
-  const url = typeof body?.url === "string" ? body.url.trim() : "";
-  if (!title) return NextResponse.json({ error: "عنوان الإعلان مطلوب" }, { status: 400 });
+  const parsed = await validateJson(request, apiSchemas.adCreate);
+  if ("response" in parsed) return parsed.response;
+  const { title, url } = parsed.data;
   const current = await readAds();
   if (current.error) return NextResponse.json({ error: current.error }, { status: 500 });
   const ad: Ad = { id: crypto.randomUUID(), title, url, active: true };
   const result = await createServiceClient().from("site_settings").update({ ads: [...current.ads, ad], updated_by: auth.access.user.id, updated_at: new Date().toISOString() }).eq("id", true);
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
+  await writeAuditLog({ actorId: auth.access.user.id, action: "ad.create", request, targetType: "ad", targetId: ad.id });
   return NextResponse.json({ ad }, { status: 201 });
 }
 
 export async function DELETE(request: NextRequest) {
   const auth = await authorize();
   if ("response" in auth) return auth.response;
-  const body = await request.json().catch(() => null) as { id?: string } | null;
-  if (!body?.id) return NextResponse.json({ error: "معرف الإعلان مطلوب" }, { status: 400 });
+  const parsed = await validateJson(request, apiSchemas.adDelete);
+  if ("response" in parsed) return parsed.response;
   const current = await readAds();
   if (current.error) return NextResponse.json({ error: current.error }, { status: 500 });
-  const result = await createServiceClient().from("site_settings").update({ ads: current.ads.filter((ad) => ad.id !== body.id), updated_by: auth.access.user.id, updated_at: new Date().toISOString() }).eq("id", true);
+  const result = await createServiceClient().from("site_settings").update({ ads: current.ads.filter((ad) => ad.id !== parsed.data.id), updated_by: auth.access.user.id, updated_at: new Date().toISOString() }).eq("id", true);
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
+  await writeAuditLog({ actorId: auth.access.user.id, action: "ad.delete", request, targetType: "ad", targetId: parsed.data.id });
   return NextResponse.json({ ok: true });
 }
 

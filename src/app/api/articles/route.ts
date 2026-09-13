@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { requireApiActionPermission } from "@/lib/authorization";
+import { apiSchemas, validateJson } from "@/lib/api-validation";
+import { writeAuditLog } from "@/lib/audit-log";
 import { createServiceClient } from "@/lib/supabase-server";
+import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
 
 /**
  * تحويل النص العربي أو الإنجليزي إلى slug متوافق ونظيف
@@ -49,44 +52,43 @@ export async function POST(request: NextRequest) {
   if ("response" in permission) return permission.response;
   const { access } = permission;
 
-  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  const title = typeof body?.title === "string" ? body.title.trim() : "";
-  if (!title) {
-    return NextResponse.json({ error: "عنوان الخبر مطلوب" }, { status: 400 });
-  }
+  const parsed = await validateJson(request, apiSchemas.articleCreate);
+  if ("response" in parsed) return parsed.response;
+  const body = parsed.data;
+  const title = body.title;
 
   const dbClient = createServiceClient();
   const slug = await generateUniqueSlug(dbClient, title);
   if (!slug.trim()) return NextResponse.json({ error: "تعذر توليد معرف المقال" }, { status: 400 });
 
-  const rawContent = body?.content;
+  const rawContent = body.content;
   let contentArray: string[];
   if (Array.isArray(rawContent)) {
-    contentArray = rawContent.map((item) => String(item ?? "").trim()).filter(Boolean);
+    contentArray = rawContent.map((item) => sanitizeCmsHtml(String(item ?? "").trim())).filter(Boolean);
   } else if (typeof rawContent === "string" && rawContent.trim()) {
-    contentArray = [rawContent.trim()];
+    contentArray = [sanitizeCmsHtml(rawContent.trim())];
   } else {
     contentArray = [""];
   }
 
-  const authorName = typeof body?.author_name === "string" && body.author_name.trim()
+  const authorName = typeof body.author_name === "string" && body.author_name.trim()
     ? body.author_name.trim()
     :
     typeof access.user.user_metadata?.full_name === "string" && access.user.user_metadata.full_name.trim()
       ? access.user.user_metadata.full_name.trim()
       : "فريق التحرير";
 
-  const status = typeof body?.status === "string" && ["draft", "published", "review"].includes(body.status) ? body.status : "draft";
-  const requestedPublishedAt = typeof body?.published_at === "string" && body.published_at ? new Date(body.published_at) : null;
+  const status = body.status ?? "draft";
+  const requestedPublishedAt = body.published_at ? new Date(body.published_at) : null;
   const publishedAt = status === "published" ? (requestedPublishedAt && !Number.isNaN(requestedPublishedAt.getTime()) ? requestedPublishedAt.toISOString() : new Date().toISOString()) : null;
 
   const payload = {
     title,
     slug,
-    excerpt: typeof body?.excerpt === "string" ? body.excerpt.trim() : "",
+    excerpt: typeof body.excerpt === "string" ? body.excerpt.trim() : "",
     content: contentArray,
-    cover_image_url: typeof body?.cover_image_url === "string" && body.cover_image_url ? body.cover_image_url : null,
-    category_id: typeof body?.category_id === "string" && body.category_id ? body.category_id : null,
+    cover_image_url: typeof body.cover_image_url === "string" && body.cover_image_url ? body.cover_image_url : null,
+    category_id: typeof body.category_id === "string" && body.category_id ? body.category_id : null,
     status,
     published_at: publishedAt,
     author_name: authorName,
@@ -103,6 +105,7 @@ export async function POST(request: NextRequest) {
   if (articleId === null || articleId === undefined || String(articleId).trim() === "") {
     return NextResponse.json({ error: "تم حفظ الخبر لكن الخادم لم يرجع معرفه" }, { status: 500 });
   }
+  await writeAuditLog({ actorId: access.user.id, action: "article.create", request, targetType: "article", targetId: String(articleId), metadata: { status } });
   return NextResponse.json({ ok: true, article: { ...data, id: articleId } }, { status: 201 });
 }
 

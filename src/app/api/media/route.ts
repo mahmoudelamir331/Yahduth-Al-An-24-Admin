@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentAccess, hasPermission } from "@/lib/authorization";
+import { writeAuditLog } from "@/lib/audit-log";
 import { createClient } from "@/lib/supabase-server";
 
 const allowedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
@@ -22,6 +23,7 @@ export async function POST(request: Request) {
   const path = `${area}/${crypto.randomUUID()}.${extensions[file.type]}`;
   const result = await supabase.storage.from("news-media").upload(path, file, { contentType: file.type, upsert: false });
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
+  await writeAuditLog({ actorId: access.user.id, action: "media.upload", request, targetType: "storage_object", targetId: path, metadata: { area, contentType: file.type, size: file.size } });
   return NextResponse.json({ path, url: supabase.storage.from("news-media").getPublicUrl(path).data.publicUrl });
 }
 

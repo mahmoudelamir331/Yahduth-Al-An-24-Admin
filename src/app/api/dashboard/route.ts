@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { getCurrentAccess, hasPermission } from "@/lib/authorization";
-import { createClient } from "@/lib/supabase-server";
+import { createServiceClient } from "@/lib/supabase-server";
 
 export async function GET() {
   const access = await getCurrentAccess();
   if (!access.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
   if (!hasPermission(access, "dashboard")) return NextResponse.json({ error: "ليس لديك صلاحية عرض لوحة التحكم" }, { status: 403 });
 
-  const supabase = await createClient();
+  const supabase = createServiceClient();
   const [articlesResult, categoriesResult, staffResult, settingsResult] = await Promise.all([
     supabase.from("articles").select("id,title,status,published_at,views_count,categories(name)").order("published_at", { ascending: false }).limit(20),
     supabase.from("categories").select("name,slug").eq("is_active", true).order("name").limit(100),

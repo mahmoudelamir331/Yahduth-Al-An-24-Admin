@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import NewsEditor from "@/components/NewsEditor";
+import { sanitizePreviewHtml } from "@/lib/sanitize-html";
 
 export default function NewArticlePage() {
   const router = useRouter();
@@ -113,12 +114,12 @@ export default function NewArticlePage() {
             <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)} className="admin-input mt-0"><option value="">اختار القسم</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
             <label className="interactive-button flex cursor-pointer items-center justify-center gap-2 rounded-lg border-dashed px-3 py-2 text-sm text-muted-foreground hover:bg-muted"><ImagePlus size={17} />{cover ? "تم رفع الغلاف" : "رفع صورة الغلاف"}<input type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} /></label>
           </div>
-          {cover && <Image src={cover} alt="غلاف الخبر" width={1000} height={420} className="mb-6 max-h-72 w-full rounded-lg object-cover" unoptimized />}
+          {cover && <Image src={cover} alt="غلاف الخبر" width={1000} height={420} className="mb-6 max-h-72 w-full rounded-lg object-cover" />}
           <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
             <NewsEditor onChange={setContent} />
             <aside className="rounded-lg border bg-background p-4">
               <h2 className="mb-3 text-sm font-black">معاينة حية</h2>
-              <article className="prose prose-sm max-w-none"><h1>{title || "عنوان الخبر"}</h1><div dangerouslySetInnerHTML={{ __html: content || "<p>اكتب محتوى الخبر وسيظهر هنا فوراً.</p>" }} /></article>
+              <article className="prose prose-sm max-w-none"><h1>{title || "عنوان الخبر"}</h1><div dangerouslySetInnerHTML={{ __html: sanitizePreviewHtml(content || "<p>اكتب محتوى الخبر وسيظهر هنا فوراً.</p>") }} /></article>
             </aside>
           </div>
         </section>

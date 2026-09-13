@@ -1,3 +1,4 @@
+import "server-only";
 import { redirect } from "next/navigation";
 import { createClient as createServiceClient, type User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase-server";

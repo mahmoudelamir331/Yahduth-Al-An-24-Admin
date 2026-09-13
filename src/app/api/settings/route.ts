@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getCurrentAccess, hasActionPermission } from "@/lib/authorization";
+import { apiSchemas, validateJson } from "@/lib/api-validation";
+import { writeAuditLog } from "@/lib/audit-log";
 import { createServiceClient } from "@/lib/supabase-server";
 
 const allowedColumns = [
@@ -20,7 +22,7 @@ const allowedColumns = [
   "logo_url",
   "favicon_url",
   "live_streams",
-];
+] as const;
 
 export async function GET() {
   const access = await getCurrentAccess();
@@ -41,8 +43,9 @@ export async function PUT(request: NextRequest) {
   const canManageLive = hasActionPermission(access, "live.edit");
   if (!canManageSettings && !canManageLive) return NextResponse.json({ error: "ليس لديك صلاحية التعديل" }, { status: 403 });
 
-  const body = await request.json().catch(() => null) as Record<string, unknown> | null;
-  if (!body) return NextResponse.json({ error: "بيانات الحفظ غير صحيحة" }, { status: 400 });
+  const parsed = await validateJson(request, apiSchemas.settings);
+  if ("response" in parsed) return parsed.response;
+  const body = parsed.data;
 
   const patch: Record<string, unknown> = {};
   for (const key of allowedColumns) {
@@ -56,6 +59,7 @@ export async function PUT(request: NextRequest) {
   const result = await createServiceClient().from("site_settings").update(patch).eq("id", true).select("id").maybeSingle();
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
   if (!result.data) return NextResponse.json({ error: "لم يتم العثور على صف الإعدادات" }, { status: 404 });
+  await writeAuditLog({ actorId: access.user.id, action: "settings.update", request, targetType: "site_settings", targetId: "true", metadata: { keys: Object.keys(patch).filter((key) => !["updated_by", "updated_at"].includes(key)).join(",").slice(0, 500) } });
   return NextResponse.json({ ok: true, message: "تم حفظ الإعدادات بنجاح" });
 }
 

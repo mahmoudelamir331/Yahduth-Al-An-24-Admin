@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import type { User } from "@supabase/supabase-js";
 import { requireApiSuperAdmin } from "@/lib/authorization";
+import { apiSchemas, validateJson } from "@/lib/api-validation";
+import { writeAuditLog } from "@/lib/audit-log";
 import { createAdminClient } from "@/lib/supabase-admin";
 import { createServiceClient } from "@/lib/supabase-server";
 
@@ -30,10 +32,6 @@ async function requireSuperAdmin(): Promise<TeamAccess> {
   const permission = await requireApiSuperAdmin();
   if ("response" in permission) return { response: NextResponse.json(await permission.response.json(), { status: permission.response.status }) };
   return { supabase: createServiceClient(), user: permission.access.user! };
-}
-
-function getBody(request: NextRequest) {
-  return request.json().catch(() => null) as Promise<Record<string, unknown> | null>;
 }
 
 function sanitizePermissions(value: unknown) {
@@ -76,19 +74,12 @@ export async function POST(request: NextRequest) {
   const access = await requireSuperAdmin();
   if ("response" in access) return access.response;
 
-  const body = await getBody(request);
-  const email = typeof body?.email === "string" ? body.email.trim().toLowerCase() : "";
-  const name = typeof body?.name === "string" ? body.name.trim() : "";
-  const role = getEditableRole(body?.role) ?? "editor";
-  if (!name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return NextResponse.json({ error: "الاسم والبريد الإلكتروني الصحيح مطلوبان" }, { status: 400 });
-  }
-
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  if (!serviceKey || !supabaseUrl) {
-    return NextResponse.json({ error: "إعدادات إنشاء الحسابات غير مكتملة" }, { status: 500 });
-  }
+  const parsed = await validateJson(request, apiSchemas.teamCreate);
+  if ("response" in parsed) return parsed.response;
+  const body = parsed.data;
+  const email = body.email.toLowerCase();
+  const name = body.name;
+  const role = getEditableRole(body.role) ?? "editor";
 
   let admin;
   try {
@@ -96,15 +87,16 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "إعدادات إنشاء الحسابات غير مكتملة" }, { status: 500 });
   }
-  const password = typeof body?.password === "string" ? body.password : "";
-  if (password.length < 8) return NextResponse.json({ error: "كلمة السر يجب أن تكون 8 أحرف على الأقل" }, { status: 400 });
-  const created = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { full_name: name } });
+  const created = await admin.auth.admin.inviteUserByEmail(email, {
+    data: { full_name: name },
+    redirectTo: new URL("/reset-password", request.url).toString(),
+  });
   if (created.error) return NextResponse.json({ error: created.error.message }, { status: 500 });
 
   const newId = created.data.user?.id;
   if (!newId) return NextResponse.json({ error: "تعذر إنشاء الحساب" }, { status: 500 });
 
-  const permissions = sanitizePermissions(body?.permissions);
+  const permissions = sanitizePermissions(body.permissions);
   const [permissionsResult, profileResult] = await Promise.all([
     admin.from("user_permissions").upsert({ user_id: newId, role, permissions }),
     admin.from("profiles").upsert({ user_id: newId, full_name: name }),
@@ -114,6 +106,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: permissionsResult.error?.message ?? profileResult.error?.message ?? "تعذر تجهيز حساب الموظف" }, { status: 500 });
   }
 
+  await writeAuditLog({ actorId: access.user.id, action: "team.invite", request, targetType: "user", targetId: newId, metadata: { role } });
   return NextResponse.json({ ok: true, message: `تم إنشاء حساب ${name} بنجاح` });
 }
 
@@ -121,10 +114,11 @@ export async function PATCH(request: NextRequest) {
   const access = await requireSuperAdmin();
   if ("response" in access) return access.response;
 
-  const body = await getBody(request);
-  const userId = getUserId(body?.userId);
-  const role = getEditableRole(body?.role);
-  if (!userId || !role) return NextResponse.json({ error: "بيانات التعديل غير صحيحة" }, { status: 400 });
+  const parsed = await validateJson(request, apiSchemas.teamUpdate);
+  if ("response" in parsed) return parsed.response;
+  const body = parsed.data;
+  const userId = getUserId(body.userId);
+  const role = getEditableRole(body.role);
   if (userId === access.user.id) return NextResponse.json({ error: "لا يمكن تعديل صلاحيات حسابك من هذه الشاشة" }, { status: 400 });
 
   const target = await access.supabase.from("user_permissions").select("role").eq("user_id", userId).maybeSingle();
@@ -134,8 +128,9 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "لا يمكن تعديل صلاحيات المدير العام" }, { status: 403 });
   }
 
-  const update = await access.supabase.from("user_permissions").update({ role, permissions: sanitizePermissions(body?.permissions), updated_at: new Date().toISOString() }).eq("user_id", userId);
+  const update = await access.supabase.from("user_permissions").update({ role, permissions: sanitizePermissions(body.permissions), updated_at: new Date().toISOString() }).eq("user_id", userId);
   if (update.error) return NextResponse.json({ error: update.error.message }, { status: 500 });
+  await writeAuditLog({ actorId: access.user.id, action: "team.permissions.update", request, targetType: "user", targetId: userId, metadata: { role } });
   return NextResponse.json({ ok: true, message: "تم تحديث الصلاحيات بنجاح" });
 }
 
@@ -143,9 +138,9 @@ export async function DELETE(request: NextRequest) {
   const access = await requireSuperAdmin();
   if ("response" in access) return access.response;
 
-  const body = await getBody(request);
-  const userId = getUserId(body?.userId);
-  if (!userId) return NextResponse.json({ error: "معرف الموظف مطلوب" }, { status: 400 });
+  const parsed = await validateJson(request, apiSchemas.teamDelete);
+  if ("response" in parsed) return parsed.response;
+  const userId = getUserId(parsed.data.userId);
   if (userId === access.user.id) return NextResponse.json({ error: "لا يمكن إزالة حسابك" }, { status: 400 });
 
   const target = await access.supabase.from("user_permissions").select("role").eq("user_id", userId).maybeSingle();
@@ -157,6 +152,7 @@ export async function DELETE(request: NextRequest) {
 
   const deleted = await access.supabase.from("user_permissions").delete().eq("user_id", userId);
   if (deleted.error) return NextResponse.json({ error: deleted.error.message }, { status: 500 });
+  await writeAuditLog({ actorId: access.user.id, action: "team.remove", request, targetType: "user", targetId: userId });
   return NextResponse.json({ ok: true, message: "تمت إزالة الموظف من الفريق" });
 }
 

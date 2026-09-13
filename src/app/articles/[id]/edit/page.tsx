@@ -28,7 +28,19 @@ export default function EditArticlePage() {
   async function save() {
     if (!article) return;
     setBusy(true); setError(""); setMessage("");
-    const response = await fetch(`/api/articles/${article.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...article, content: content.split(/\n+/).filter(Boolean) }) });
+    const response = await fetch(`/api/articles/${article.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: article.title,
+        excerpt: article.excerpt,
+        content: content.split(/\n+/).filter(Boolean),
+        author_name: article.author_name,
+        published_at: article.published_at,
+        status: article.status,
+        cover_image_url: article.cover_image_url,
+      }),
+    });
     const result = await response.json() as { error?: string };
     if (!response.ok) setError(result.error ?? "تعذر حفظ التعديلات");
     else setMessage("تم حفظ كل تعديلات الخبر بنجاح");

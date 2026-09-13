@@ -2,6 +2,8 @@ import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { requireApiActionPermission } from "@/lib/authorization";
+import { apiSchemas, validateJson } from "@/lib/api-validation";
+import { writeAuditLog } from "@/lib/audit-log";
 import { createServiceClient } from "@/lib/supabase-server";
 
 async function requireCategoryAccess() {
@@ -40,18 +42,21 @@ export async function POST(request: NextRequest) {
   const auth = await requireCategoryAccess();
   if ("response" in auth) return auth.response;
 
-  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  const name = normalizeName(body?.name);
-  const slug = normalizeSlug(body?.slug, name);
-  if (!name || !slug) return NextResponse.json({ error: "اسم التصنيف مطلوب" }, { status: 400 });
+  const parsed = await validateJson(request, apiSchemas.categoryCreate);
+  if ("response" in parsed) return parsed.response;
+  const body = parsed.data;
+  const name = normalizeName(body.name);
+  const slug = normalizeSlug(body.slug, name);
+  if (!slug) return NextResponse.json({ error: "اسم التصنيف مطلوب" }, { status: 400 });
 
   const supabase = createServiceClient();
   const result = await supabase
     .from("categories")
-    .insert({ name, slug, is_active: body?.is_active !== false })
+    .insert({ name, slug, is_active: body.is_active !== false })
     .select("id,name,slug,is_active")
     .single();
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 400 });
+  await writeAuditLog({ actorId: auth.access.user.id, action: "category.create", request, targetType: "category", targetId: String(result.data.id) });
   revalidatePath("/");
   revalidatePath("/category/[slug]", "page");
   return NextResponse.json({ category: result.data }, { status: 201 });
@@ -61,20 +66,19 @@ export async function PATCH(request: NextRequest) {
   const auth = await requireCategoryAccess();
   if ("response" in auth) return auth.response;
 
-  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  const id = body?.id;
-  if (typeof id !== "number" && typeof id !== "string") {
-    return NextResponse.json({ error: "معرف التصنيف مطلوب" }, { status: 400 });
-  }
+  const parsed = await validateJson(request, apiSchemas.categoryUpdate);
+  if ("response" in parsed) return parsed.response;
+  const body = parsed.data;
+  const id = body.id;
 
   const patch: Record<string, unknown> = {};
-  const name = normalizeName(body?.name);
+  const name = normalizeName(body.name);
   if (name) patch.name = name;
-  const slugInput = typeof body?.slug === "string" ? body.slug.trim() : "";
+  const slugInput = typeof body.slug === "string" ? body.slug.trim() : "";
   const slug = slugInput ? normalizeSlug(slugInput, "") : "";
   if (slug) patch.slug = slug;
   else if (name) patch.slug = normalizeSlug(null, name);
-  if (typeof body?.is_active === "boolean") patch.is_active = body.is_active;
+  if (typeof body.is_active === "boolean") patch.is_active = body.is_active;
 
   if (Object.keys(patch).length === 0) return NextResponse.json({ error: "لا توجد بيانات للتعديل" }, { status: 400 });
 
@@ -87,6 +91,7 @@ export async function PATCH(request: NextRequest) {
     .maybeSingle();
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 400 });
   if (!result.data) return NextResponse.json({ error: "التصنيف غير موجود" }, { status: 404 });
+  await writeAuditLog({ actorId: auth.access.user.id, action: "category.update", request, targetType: "category", targetId: String(result.data.id) });
   revalidatePath("/");
   revalidatePath("/category/[slug]", "page");
   return NextResponse.json({ category: result.data });
@@ -96,11 +101,9 @@ export async function DELETE(request: NextRequest) {
   const auth = await requireCategoryAccess();
   if ("response" in auth) return auth.response;
 
-  const body = (await request.json().catch(() => null)) as { id?: number | string } | null;
-  const id = body?.id;
-  if (typeof id !== "number" && typeof id !== "string") {
-    return NextResponse.json({ error: "معرف التصنيف مطلوب" }, { status: 400 });
-  }
+  const parsed = await validateJson(request, apiSchemas.categoryDelete);
+  if ("response" in parsed) return parsed.response;
+  const { id } = parsed.data;
 
   const supabase = createServiceClient();
   // افصل المقالات المرتبطة بالقسم قبل الحذف حتى لا يحدث تعارض في قيود المفاتيح الأجنبية
@@ -108,6 +111,7 @@ export async function DELETE(request: NextRequest) {
   const result = await supabase.from("categories").delete().eq("id", id).select("id").maybeSingle();
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 400 });
   if (!result.data) return NextResponse.json({ error: "التصنيف غير موجود" }, { status: 404 });
+  await writeAuditLog({ actorId: auth.access.user.id, action: "category.delete", request, targetType: "category", targetId: String(result.data.id) });
   revalidatePath("/");
   revalidatePath("/category/[slug]", "page");
   return NextResponse.json({ ok: true });

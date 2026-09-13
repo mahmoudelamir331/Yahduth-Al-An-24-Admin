@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getCurrentAccess, hasActionPermission } from "@/lib/authorization";
+import { apiSchemas, validateJson } from "@/lib/api-validation";
+import { writeAuditLog } from "@/lib/audit-log";
 import { createServiceClient } from "@/lib/supabase-server";
+import { sanitizeCmsHtml } from "@/lib/content-sanitizer";
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await getCurrentAccess();
@@ -15,7 +18,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   return NextResponse.json({ article: result.data });
 }
 
-export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const access = await getCurrentAccess();
   if (!access.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
   if (!hasActionPermission(access, "article.delete")) return NextResponse.json({ error: "ليس لديك صلاحية الحذف" }, { status: 403 });
@@ -27,6 +30,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const result = await createServiceClient().from("articles").delete().eq("id", articleId).select("id").maybeSingle();
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
   if (!result.data) return NextResponse.json({ error: "الخبر غير موجود" }, { status: 404 });
+  await writeAuditLog({ actorId: access.user.id, action: "article.delete", request, targetType: "article", targetId: articleId });
   return NextResponse.json({ ok: true });
 }
 
@@ -40,25 +44,27 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const articleId = id?.trim();
   if (!articleId || articleId === "undefined" || articleId === "null") return NextResponse.json({ error: "معرف الخبر غير صحيح" }, { status: 400 });
 
-  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
-  if (!body) return NextResponse.json({ error: "بيانات التعديل غير صحيحة" }, { status: 400 });
+  const parsed = await validateJson(request, apiSchemas.articleUpdate);
+  if ("response" in parsed) return parsed.response;
+  const body = parsed.data;
 
   const patch: Record<string, unknown> = {};
-  for (const key of ["title", "excerpt", "author_name", "cover_image_url"]) {
+  const stringFields = ["title", "excerpt", "author_name", "cover_image_url"] as const;
+  for (const key of stringFields) {
     if (typeof body[key] === "string") patch[key] = body[key].trim();
   }
-  if (Array.isArray(body.content)) patch.content = body.content.map(String).filter(Boolean);
+  if (Array.isArray(body.content)) patch.content = body.content.map((value) => sanitizeCmsHtml(String(value))).filter(Boolean);
   if (typeof body.published_at === "string" && body.published_at) {
     const publishedAt = new Date(body.published_at);
     if (!Number.isNaN(publishedAt.getTime())) patch.published_at = publishedAt.toISOString();
   }
-  const status = body?.status;
+  const status = body.status;
   if (typeof status === "string" && ["draft", "published", "review"].includes(status)) {
     patch.status = status;
     if (status === "published" && !patch.published_at) patch.published_at = new Date().toISOString();
     if (status === "draft") patch.published_at = null;
   }
-  const categoryId = body?.category_id;
+  const categoryId = body.category_id;
   if (typeof categoryId === "string" && categoryId) patch.category_id = categoryId;
   patch.updated_by = access.user.id;
   patch.updated_at = new Date().toISOString();
@@ -66,5 +72,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const result = await createServiceClient().from("articles").update(patch).eq("id", articleId).select("id,title,status,published_at,category_id").maybeSingle();
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
   if (!result.data) return NextResponse.json({ error: "الخبر غير موجود" }, { status: 404 });
+  await writeAuditLog({ actorId: access.user.id, action: "article.update", request, targetType: "article", targetId: articleId, metadata: { status: typeof patch.status === "string" ? patch.status : null } });
   return NextResponse.json({ ok: true, article: result.data });
 }
