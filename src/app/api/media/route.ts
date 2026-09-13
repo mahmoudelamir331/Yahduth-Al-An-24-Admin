@@ -19,12 +19,14 @@ export async function POST(request: Request) {
   if (file.size === 0 || file.size > maxFileSize) return NextResponse.json({ error: "حجم الصورة يجب أن يكون بين 1 بايت و10 ميجابايت" }, { status: 400 });
 
   const supabase = await createClient();
-  const area = request.headers.get("x-upload-area") === "ads" ? "ads" : "articles";
+  const isAdUpload = request.headers.get("x-upload-area") === "ads";
+  const bucket = isAdUpload ? "ads-media" : "news-media";
+  const area = isAdUpload ? "ads" : "articles";
   const path = `${area}/${crypto.randomUUID()}.${extensions[file.type]}`;
-  const result = await supabase.storage.from("news-media").upload(path, file, { contentType: file.type, upsert: false });
+  const result = await supabase.storage.from(bucket).upload(path, file, { contentType: file.type, upsert: false });
   if (result.error) return NextResponse.json({ error: result.error.message }, { status: 500 });
-  await writeAuditLog({ actorId: access.user.id, action: "media.upload", request, targetType: "storage_object", targetId: path, metadata: { area, contentType: file.type, size: file.size } });
-  return NextResponse.json({ path, url: supabase.storage.from("news-media").getPublicUrl(path).data.publicUrl });
+  await writeAuditLog({ actorId: access.user.id, action: "media.upload", request, targetType: "storage_object", targetId: path, metadata: { area, bucket, contentType: file.type, size: file.size } });
+  return NextResponse.json({ path, url: supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl });
 }
 
 export const dynamic = "force-dynamic";
