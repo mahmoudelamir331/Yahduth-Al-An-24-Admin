@@ -54,7 +54,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (body[key] === null) patch[key] = null;
     else if (typeof body[key] === "string") patch[key] = body[key].trim();
   }
-  if (Array.isArray(body.content)) patch.content = body.content.map((value) => sanitizeCmsHtml(String(value))).filter(Boolean);
+  if (body.content === null) patch.content = null;
+  else if (Array.isArray(body.content)) patch.content = body.content.map((value) => sanitizeCmsHtml(String(value))).filter(Boolean);
   if (body.published_at === null) {
     patch.published_at = null;
   } else if (typeof body.published_at === "string" && body.published_at) {
