@@ -51,10 +51,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const patch: Record<string, unknown> = {};
   const stringFields = ["title", "excerpt", "author_name", "cover_image_url"] as const;
   for (const key of stringFields) {
-    if (typeof body[key] === "string") patch[key] = body[key].trim();
+    if (body[key] === null) patch[key] = null;
+    else if (typeof body[key] === "string") patch[key] = body[key].trim();
   }
   if (Array.isArray(body.content)) patch.content = body.content.map((value) => sanitizeCmsHtml(String(value))).filter(Boolean);
-  if (typeof body.published_at === "string" && body.published_at) {
+  if (body.published_at === null) {
+    patch.published_at = null;
+  } else if (typeof body.published_at === "string" && body.published_at) {
     const publishedAt = new Date(body.published_at);
     if (!Number.isNaN(publishedAt.getTime())) patch.published_at = publishedAt.toISOString();
   }
