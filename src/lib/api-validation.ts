@@ -5,6 +5,9 @@ import { z } from "zod";
 
 const email = z.string().trim().email().max(254);
 const text = (max: number) => z.string().trim().max(max);
+// Database columns are nullable, so optional text fields must accept null as well as
+// an absent key — otherwise a partially filled article is rejected on save.
+const optionalText = (max: number) => z.union([text(max), z.null()]).optional();
 const urlValue = z.union([z.string().trim().url().max(2_000), z.literal(""), z.null()]).optional();
 const identifier = z.union([z.string().trim().min(1).max(200), z.number().int().nonnegative()]);
 const permissions = z.record(z.string().max(64), z.boolean()).optional();
@@ -15,8 +18,8 @@ export const apiSchemas = {
   teamCreate: z.object({ email, name: text(120).min(1), role: z.enum(["editor", "reviewer"]).optional(), permissions }).strict(),
   teamUpdate: z.object({ userId: z.string().uuid(), role: z.enum(["editor", "reviewer"]), permissions }).strict(),
   teamDelete: z.object({ userId: z.string().uuid() }).strict(),
-  articleCreate: z.object({ title: text(300).min(1), excerpt: text(1000).optional(), content: z.union([z.string().max(100_000), z.array(z.string().max(100_000)).max(100)]).optional(), cover_image_url: urlValue, category_id: z.string().max(200).nullable().optional(), status: z.enum(["draft", "published", "review"]).optional(), published_at: z.string().datetime().optional(), author_name: text(160).optional() }).strict(),
-  articleUpdate: z.object({ title: text(300).optional(), excerpt: text(1000).optional(), content: z.array(z.string().max(100_000)).max(100).optional(), cover_image_url: urlValue, category_id: z.string().max(200).nullable().optional(), status: z.enum(["draft", "published", "review"]).optional(), published_at: z.string().datetime().optional(), author_name: text(160).optional() }).strict(),
+  articleCreate: z.object({ title: text(300).min(1), excerpt: optionalText(1000), content: z.union([z.string().max(100_000), z.array(z.string().max(100_000)).max(100)]).optional(), cover_image_url: urlValue, category_id: z.string().max(200).nullable().optional(), status: z.enum(["draft", "published", "review"]).optional(), published_at: z.string().datetime().nullable().optional(), author_name: optionalText(160) }).strict(),
+  articleUpdate: z.object({ title: text(300).optional(), excerpt: optionalText(1000), content: z.array(z.string().max(100_000)).max(100).optional(), cover_image_url: urlValue, category_id: z.string().max(200).nullable().optional(), status: z.enum(["draft", "published", "review"]).optional(), published_at: z.string().datetime().nullable().optional(), author_name: optionalText(160) }).strict(),
   categoryCreate: z.object({ name: text(120).min(1), slug: text(120).optional(), is_active: z.boolean().optional() }).strict(),
   categoryUpdate: z.object({ id: identifier, name: text(120).optional(), slug: text(120).optional(), is_active: z.boolean().optional() }).strict(),
   categoryDelete: z.object({ id: identifier }).strict(),

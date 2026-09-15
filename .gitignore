@@ -45,3 +45,10 @@ CLAUDE.md
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+# local utility scripts that may embed credentials
+*.ps1
+# stray build / audit output
+*-error.log
+*serveo*.log
+build-final*.log
+tsconfig.tsbuildinfo
