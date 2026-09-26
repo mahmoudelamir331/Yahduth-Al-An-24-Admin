@@ -43,12 +43,13 @@ export default function ProfilePage() {
 
   async function uploadAvatar(file: File) {
     if (!userId) return;
-    const path = `avatars/${userId}-${Date.now()}.jpg`;
-    const supabase = createClient();
-    const { error } = await supabase.storage.from("news-media").upload(path, file, { contentType: file.type, upsert: true });
-    if (error) { setError("تعذر رفع الصورة: " + error.message); return; }
-    const url = supabase.storage.from("news-media").getPublicUrl(path).data.publicUrl;
-    setProfile(current => ({ ...current, avatar_url: url }));
+    const form = new FormData();
+    form.append("file", file);
+    form.append("area", "avatars");
+    const response = await fetch("/api/upload", { method: "POST", body: form });
+    const payload = (await response.json()) as { url?: string; error?: string };
+    if (!response.ok || !payload.url) { setError("تعذر رفع الصورة: " + (payload.error ?? "خطأ غير معروف")); return; }
+    setProfile(current => ({ ...current, avatar_url: payload.url as string }));
   }
 
   const field = (label: string, key: keyof Profile, placeholder = "") => <label className="text-sm font-semibold">{label}<input value={profile[key] ?? ""} onChange={event => setProfile(current => ({ ...current, [key]: event.target.value }))} className="admin-input mt-1.5" placeholder={placeholder} /></label>;
