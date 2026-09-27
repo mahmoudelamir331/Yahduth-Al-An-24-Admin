@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireApiUser, jsonError } from "@/lib/api-auth";
+import { getCurrentAccess } from "@/lib/authorization";
 import { writeAuditLog } from "@/lib/audit-log";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
 
@@ -7,8 +7,10 @@ const allowedMimeTypes = new Set(["image/jpeg", "image/png", "image/webp", "imag
 const MAX_SIZE = 5 * 1024 * 1024;
 
 export async function POST(request: Request) {
-  const access = await requireApiUser(request, ["admin", "editor"]);
-  if (!access.ok) return jsonError(access.status, access.message);
+  // Any authenticated team member (Super Admin + Staff) may upload images.
+  const access = await getCurrentAccess();
+  if (!access.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+  if (!access.role) return NextResponse.json({ error: "ليس لديك صلاحية رفع الصور" }, { status: 403 });
 
   const form = await request.formData().catch(() => null);
   const file = form?.get("file");
@@ -29,3 +31,5 @@ export async function POST(request: Request) {
   await writeAuditLog({ actorId: access.user.id, action: "media.upload", request, targetType: "cloudinary_asset", targetId: uploaded.publicId, metadata: { area, contentType: file.type, size: file.size } });
   return NextResponse.json({ url: uploaded.url, path: uploaded.publicId });
 }
+
+export const dynamic = "force-dynamic";

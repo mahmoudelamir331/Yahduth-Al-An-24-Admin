@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getCurrentAccess, hasPermission } from "@/lib/authorization";
+import { getCurrentAccess } from "@/lib/authorization";
 import { writeAuditLog } from "@/lib/audit-log";
 import { uploadImageToCloudinary } from "@/lib/cloudinary";
 
@@ -9,7 +9,7 @@ const maxFileSize = 10 * 1024 * 1024;
 export async function POST(request: Request) {
   const access = await getCurrentAccess();
   if (!access.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-  if (!hasPermission(access, "content") && !hasPermission(access, "ads")) return NextResponse.json({ error: "ليس لديك صلاحية رفع الملفات" }, { status: 403 });
+  if (!access.role) return NextResponse.json({ error: "ليس لديك صلاحية رفع الملفات" }, { status: 403 });
 
   const form = await request.formData();
   const file = form.get("file");
