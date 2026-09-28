@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
     content: contentArray,
     cover_image_url: typeof body.cover_image_url === "string" && body.cover_image_url ? body.cover_image_url : null,
     image_caption: typeof body.image_caption === "string" ? body.image_caption.trim() : null,
+    is_headline: body.is_headline === true,
     category_id: typeof body.category_id === "string" && body.category_id ? body.category_id : null,
     status,
     published_at: publishedAt,
@@ -100,6 +101,15 @@ export async function POST(request: NextRequest) {
   const { data, error } = await dbClient.from("articles").insert(payload).select().single();
   if (error) {
     return NextResponse.json({ error: "تعذر حفظ الخبر حاليًا" }, { status: 500 });
+  }
+
+  // الوسوم: بندخلهم في جدول article_tags (many-to-many)
+  const tags = Array.isArray(body.tags) ? body.tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 15) : [];
+  if (tags.length > 0 && data && typeof data === "object" && "id" in data) {
+    const articleId = String((data as { id?: string }).id);
+    if (articleId) {
+      await dbClient.from("article_tags").upsert(tags.map((tag) => ({ article_id: articleId, tag })));
+    }
   }
 
   const articleId = data && typeof data === "object" && "id" in data ? (data as { id?: string | number }).id : null;

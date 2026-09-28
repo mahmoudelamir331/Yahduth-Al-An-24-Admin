@@ -8,20 +8,21 @@ import { createAdminClient } from "@/lib/supabase-admin";
 import { createServiceClient } from "@/lib/supabase-server";
 
 const editableRoles = new Set(["editor", "reviewer"]);
+/**
+ * الصلاحيات المسموح بمنحها للموظفين (Staff/Editor).
+ * ملاحظة حرجة: الحذف النهائي (article.delete) وإعدادات الموقع (settings.manage)
+ * ومسح الإعلانات (ads.delete) وإدارة الفريق (team.*) محجوبة عن أي موظف
+ * حتى لو حاول الـ Super Admin منحها يدوياً — الحذف النهائي كذلك.
+ */
 const editablePermissionKeys = new Set([
   "article.create",
   "article.edit",
-  "article.delete",
   "categories.manage",
   "live.start",
   "live.edit",
   "live.stop",
   "ads.create",
   "ads.edit",
-  "ads.delete",
-  "settings.manage",
-  "team.add",
-  "team.permissions",
 ]);
 
 type TeamAccess =

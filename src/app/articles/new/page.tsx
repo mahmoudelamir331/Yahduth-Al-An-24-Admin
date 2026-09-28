@@ -12,6 +12,8 @@ export default function NewArticlePage() {
   const [title, setTitle] = useState("");
   const [cover, setCover] = useState("");
   const [imageCaption, setImageCaption] = useState("");
+  const [isHeadline, setIsHeadline] = useState(false);
+  const [tags, setTags] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [content, setContent] = useState("");
   const [authorName, setAuthorName] = useState("");
@@ -68,6 +70,8 @@ export default function NewArticlePage() {
           content: contentArray,
           cover_image_url: cover || null,
           image_caption: imageCaption.trim() || null,
+          is_headline: isHeadline,
+          tags: tags.split(/[,،]\s*/).map((tag) => tag.trim()).filter(Boolean).slice(0, 15),
           category_id: categoryId || null,
           author_name: authorName.trim() || undefined,
           published_at: publishedAt ? new Date(publishedAt).toISOString() : undefined,
@@ -121,6 +125,15 @@ export default function NewArticlePage() {
             <textarea value={imageCaption} onChange={(event) => setImageCaption(event.target.value)} className="admin-input mt-1.5" rows={2} maxLength={500} placeholder="مثال: منظر نهر النيل في أسوان وقت الغروب" />
             <span className="mt-1 block text-xs font-normal text-muted-foreground">بيظهر تحت الصورة في صفحة الخبر، وبيتحط كـ alt text لتحسين الـ SEO. لو سبته فاضي هنستخدم عنوان الخبر.</span>
           </label>}
+          <label className="mb-6 flex cursor-pointer items-center gap-2.5 rounded-lg border bg-card p-3.5 text-sm font-bold hover:border-primary">
+            <input type="checkbox" checked={isHeadline} onChange={(event) => setIsHeadline(event.target.checked)} className="size-4 accent-[var(--primary)]" />
+            <span>تثبيت كخبر رئيسي</span>
+            <span className="text-xs font-normal text-muted-foreground">الخبر المثبت يظهر في صدارة واجهة الموقع (Bento Grid Hero) مهما تاريخ نشره.</span>
+          </label>
+          <label className="mb-6 block text-sm font-bold">الوسوم / الكلمات المفتاحية (لتحسين الـ SEO)
+            <input value={tags} onChange={(event) => setTags(event.target.value)} className="admin-input mt-1.5" placeholder="مثال: التعليم، أسوان، وزارة التربية والتعليم" />
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">اكتب الكلمات مفصولة بفاصلة. تظهر أسفل الخبر في الموقع وتساعد محركات البحث.</span>
+          </label>
           <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
             <NewsEditor onChange={setContent} />
             <aside className="rounded-lg border bg-background p-4">

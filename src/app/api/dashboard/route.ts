@@ -27,16 +27,24 @@ export async function GET() {
   const viewsToday = topTodayResult.count ?? 0;
   let topArticleToday: { id: string; title: string; views_today: number } | null = null;
   if (viewsToday > 0) {
-    const events = await supabase.from("article_view_events").select("article_id").eq("viewed_on", today).limit(2000);
-    if (!events.error) {
-      const counts = new Map<string, number>();
-      for (const event of events.data ?? []) counts.set(event.article_id, (counts.get(event.article_id) ?? 0) + 1);
-      let topId: string | null = null; let topCount = 0;
-      for (const [id, count] of counts) if (count > topCount) { topId = id; topCount = count; }
-      if (topId) {
-        const articleRow = await supabase.from("articles").select("id,title").eq("id", topId).maybeSingle();
-        topArticleToday = { id: topId, title: articleRow.data?.title ?? "", views_today: topCount };
-      }
+    // نجيب كل أحداث المشاهدة لليوم بصفحات (limit 1000 كل مرة) عشان نتأكد إن
+    // الـ ranking دقيق حتى لو اليوم فيه مشاهدات كثيرة جداً.
+    const counts = new Map<string, number>();
+    let fetched = 0;
+    while (fetched < Math.min(viewsToday, 10_000)) {
+      const events = await supabase.from("article_view_events").select("article_id").eq("viewed_on", today).range(fetched, fetched + 999);
+      if (events.error) break;
+      const rows = (events.data ?? []) as { article_id: string }[];
+      if (rows.length === 0) break;
+      for (const event of rows) counts.set(event.article_id, (counts.get(event.article_id) ?? 0) + 1);
+      fetched += rows.length;
+      if (rows.length < 1000) break;
+    }
+    let topId: string | null = null; let topCount = 0;
+    for (const [id, count] of counts) if (count > topCount) { topId = id; topCount = count; }
+    if (topId) {
+      const articleRow = await supabase.from("articles").select("id,title").eq("id", topId).maybeSingle();
+      topArticleToday = { id: topId, title: articleRow.data?.title ?? "", views_today: topCount };
     }
   }
 

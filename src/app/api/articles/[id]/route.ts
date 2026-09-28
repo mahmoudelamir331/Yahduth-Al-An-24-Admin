@@ -70,6 +70,20 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   }
   const categoryId = body.category_id;
   if (typeof categoryId === "string" && categoryId) patch.category_id = categoryId;
+  if (typeof body.is_headline === "boolean") patch.is_headline = body.is_headline;
+
+  // الوسوم: لو اترفعت، بنمسح القديم وندخل الجديد في نفس المعاملة المنطقية
+  if (Array.isArray(body.tags)) {
+    const tags = body.tags.map((t) => String(t).trim()).filter(Boolean).slice(0, 15);
+    const { data: saved } = await createServiceClient().from("articles").update(patch).eq("id", articleId).select("id").maybeSingle();
+    if (!saved) return NextResponse.json({ error: "الخبر غير موجود" }, { status: 404 });
+    await createServiceClient().from("article_tags").delete().eq("article_id", articleId);
+    if (tags.length > 0) {
+      await createServiceClient().from("article_tags").upsert(tags.map((tag) => ({ article_id: articleId, tag })));
+    }
+    await writeAuditLog({ actorId: access.user.id, action: "article.update", request, targetType: "article", targetId: articleId, metadata: { tags: tags.join(",") } });
+    return NextResponse.json({ ok: true, article: saved });
+  }
   patch.updated_by = access.user.id;
   patch.updated_at = new Date().toISOString();
 
