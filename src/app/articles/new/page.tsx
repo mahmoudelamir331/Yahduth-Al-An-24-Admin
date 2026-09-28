@@ -11,6 +11,7 @@ export default function NewArticlePage() {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [cover, setCover] = useState("");
+  const [imageCaption, setImageCaption] = useState("");
   const [categoryId, setCategoryId] = useState("");
   const [content, setContent] = useState("");
   const [authorName, setAuthorName] = useState("");
@@ -66,6 +67,7 @@ export default function NewArticlePage() {
           title: title.trim(),
           content: contentArray,
           cover_image_url: cover || null,
+          image_caption: imageCaption.trim() || null,
           category_id: categoryId || null,
           author_name: authorName.trim() || undefined,
           published_at: publishedAt ? new Date(publishedAt).toISOString() : undefined,
@@ -114,7 +116,11 @@ export default function NewArticlePage() {
             <select value={categoryId} onChange={(event) => setCategoryId(event.target.value)} className="admin-input mt-0"><option value="">اختار القسم</option>{categories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}</select>
             <label className="interactive-button flex cursor-pointer items-center justify-center gap-2 rounded-lg border-dashed px-3 py-2 text-sm text-muted-foreground hover:bg-muted"><ImagePlus size={17} />{cover ? "تم رفع الغلاف" : "رفع صورة الغلاف"}<input type="file" accept="image/*" className="hidden" onChange={(event) => { const file = event.target.files?.[0]; if (file) void upload(file); }} /></label>
           </div>
-          {cover && <Image src={cover} alt="غلاف الخبر" width={1000} height={420} className="mb-6 max-h-72 w-full rounded-lg object-cover" />}
+          {cover && <Image src={cover} alt={imageCaption || title || "غلاف الخبر"} width={1000} height={420} className="mb-6 max-h-72 w-full rounded-lg object-cover" />}
+          {cover && <label className="mb-6 block text-sm font-bold">وصف صورة الغلاف (النص البديل + الوصف الظاهر تحت الصورة)
+            <textarea value={imageCaption} onChange={(event) => setImageCaption(event.target.value)} className="admin-input mt-1.5" rows={2} maxLength={500} placeholder="مثال: منظر نهر النيل في أسوان وقت الغروب" />
+            <span className="mt-1 block text-xs font-normal text-muted-foreground">بيظهر تحت الصورة في صفحة الخبر، وبيتحط كـ alt text لتحسين الـ SEO. لو سبته فاضي هنستخدم عنوان الخبر.</span>
+          </label>}
           <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
             <NewsEditor onChange={setContent} />
             <aside className="rounded-lg border bg-background p-4">

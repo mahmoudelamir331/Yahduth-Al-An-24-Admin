@@ -49,7 +49,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const body = parsed.data;
 
   const patch: Record<string, unknown> = {};
-  const stringFields = ["title", "excerpt", "author_name", "cover_image_url"] as const;
+  const stringFields = ["title", "excerpt", "author_name", "cover_image_url", "image_caption"] as const;
   for (const key of stringFields) {
     if (body[key] === null) patch[key] = null;
     else if (typeof body[key] === "string") patch[key] = body[key].trim();

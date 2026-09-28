@@ -88,6 +88,7 @@ export async function POST(request: NextRequest) {
     excerpt: typeof body.excerpt === "string" ? body.excerpt.trim() : "",
     content: contentArray,
     cover_image_url: typeof body.cover_image_url === "string" && body.cover_image_url ? body.cover_image_url : null,
+    image_caption: typeof body.image_caption === "string" ? body.image_caption.trim() : null,
     category_id: typeof body.category_id === "string" && body.category_id ? body.category_id : null,
     status,
     published_at: publishedAt,
